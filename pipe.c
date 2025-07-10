@@ -3,14 +3,13 @@
 #include <string.h>
 
 #include "sr.h"
-#include "rast.h"
-#include "clip.h"
+#include "sr_priv.h"
 
 /**
  * sr_pipe.c
  * --------
  * implementation of the internal graphics pipeline,
- * resembling loosley how its done in hardware
+ * resembling roughly how its done in hardware
  * 
  */
 
@@ -145,7 +144,7 @@ sr_render(struct sr_pipeline* pipe, int* indices,
 {
     /* setup variables */
     
-    struct raster_context rast = {
+    struct raster rast = {
         .fbuf = pipe->fbuf, 
         .uniform = pipe->uniform, 
         .fs = pipe->fs, 
@@ -153,15 +152,20 @@ sr_render(struct sr_pipeline* pipe, int* indices,
         .winding = pipe->winding
     };
 
-    int prim_size = 0;
+    int prim_size, n_prims;
+
+    float* pts_out;
+    float tmp[16 * SR_MAX_ATTRIBUTE_COUNT]; /* holds current face */;
+    uint8_t* clip_flags;
+
+    prim_size = 0;
     split_prim(prim_type, &prim_size);
-    int n_prims = n_indices / prim_size;
+    n_prims = n_indices / prim_size;
 
     /* vertex processing */
     
-    float* pts_out = malloc(pipe->n_pts * pipe->n_attr_out * 
-                            sizeof(float));
-    uint8_t* clip_flags = malloc(pipe->n_pts * sizeof(uint8_t));
+    pts_out = malloc(pipe->n_pts * pipe->n_attr_out * sizeof(float));
+    clip_flags = malloc(pipe->n_pts * sizeof(uint8_t));
 
     for (int i = 0; i < pipe->n_pts; i++) {    /* per point */
 
@@ -174,13 +178,14 @@ sr_render(struct sr_pipeline* pipe, int* indices,
         clip_test(pts_out + i * pipe->n_attr_out, clip_flags + i);
     }
 
-    float tmp[16 * SR_MAX_ATTRIBUTE_COUNT]; /* holds current face */
-
     for (int i = 0; i < n_prims * prim_size; i += prim_size) {
 
         /* primitive assembly */
 
-        uint8_t clip_and = 0, clip_or = 0;
+        uint8_t clip_and, clip_or;
+
+        clip_and = 0;
+        clip_or = 0;
 
         for (int j = 0; j < prim_size; j++) {
             /* fill buffer with primitive data */

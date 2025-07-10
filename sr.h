@@ -74,7 +74,6 @@ enum sr_light_type {
  *                                                                   *
  *********************************************************************/
 
-typedef void (*vs_f)(float* out, float* in, void* uniform);
 typedef void (*fs_f)(uint32_t* out, float* in, void* uniform);
 
 /******************
