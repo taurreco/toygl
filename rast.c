@@ -1,4 +1,3 @@
-
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
@@ -25,9 +24,9 @@
 /* holds the steps sizes / data for barycentric weight for an edge */
 
 struct edge {
-    float step_x;    /* steps to increment to get the det at new pt */
+    float step_x;      /* steps to increment to get the det at new pt */
     float step_y;    
-    int is_tl;       /* tracks if the edge is top left */
+    int   is_tl;       /* tracks if the edge is top left */
 };
 
 /***************
@@ -59,7 +58,7 @@ struct bbox {
  */
 
 static int 
-is_tl(float* v0, float* v1) 
+is_tl(float *v0, float *v1) 
 {
     int is_top = (v0[1] == v1[1]) && (v0[0] > v1[0]); 
     int is_left = v0[1] < v1[1];
@@ -79,8 +78,12 @@ is_tl(float* v0, float* v1)
 /* make an edge struct instance, return the initial determinant */
 
 static float 
-edge_init(struct edge* edge, int winding, 
-          float* v0, float* v1, float* pt)
+edge_init(
+    struct edge *edge,
+    int winding, 
+    float *v0,
+    float *v1,
+    float *pt)
 {
     edge->is_tl = is_tl(v0, v1);
 
@@ -107,7 +110,7 @@ edge_init(struct edge* edge, int winding,
 /* define a pixel-aligned bounding box for triangle rasterization */
 
 static void
-bbox_init(struct bbox* bbox, float* v0, float* v1, float* v2)
+bbox_init(struct bbox *bbox, float *v0, float *v1, float *v2)
 {    
     /* naiive values */
 
@@ -137,7 +140,7 @@ bbox_init(struct bbox* bbox, float* v0, float* v1, float* v2)
 /* render point to framebuffer */
 
 void 
-draw_pt(struct raster_context* rast, float* pt)
+draw_pt(struct raster_context *rast, float *pt)
 {
     uint32_t color = 0; /* color dest */
     rast->fs(&color, pt, rast->uniform);  /* fragment shader */
@@ -156,7 +159,7 @@ draw_pt(struct raster_context* rast, float* pt)
 /* rasterize a triangle to framebuffer */
 
 void 
-draw_tr(struct raster_context* rast, float* v0, float* v1, float* v2)
+draw_tr(struct raster_context *rast, float *v0, float *v1, float *v2)
 {   
     /* find bounding box */
 

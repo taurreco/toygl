@@ -23,6 +23,7 @@
  *********/
 
 /* clamps float value between 0 and 1 */
+
 static float
 clamp(float v)
 {
@@ -34,8 +35,9 @@ clamp(float v)
  ***********/
 
 /* converts a float representation of a color into an int */
+
 static uint32_t
-rgb_int(float* color)
+rgb_int(float *color)
 {
     uint8_t a = floorf(clamp(color[0]) * 255);;
     uint8_t r = floorf(clamp(color[1]) * 255);
@@ -50,13 +52,14 @@ rgb_int(float* color)
  *************/
 
 /* converts one int into a float representation of a color */
+
 static void
-rgb_float(float* a, uint32_t b)
+rgb_float(float *a, uint32_t b)
 {
     a[0] = ((b & 0xFF000000) >> 24) / (float)255;
     a[1] = ((b & 0x00FF0000) >> 16) / (float)255;
-    a[2] = ((b & 0x0000FF00) >> 8) / (float)255;
-    a[3] = (b & 0x000000FF) / (float)255;
+    a[2] = ((b & 0x0000FF00) >> 8)  / (float)255;
+    a[3] = ( b & 0x000000FF)        / (float)255;
 }
 
 /*********************************************************************
@@ -73,8 +76,9 @@ rgb_float(float* a, uint32_t b)
  * sends the vector 'in' to clip space by applying an mvp 
  * sets the first four indices of 'out' to these coordinates
  */
+
 static void
-clip_space(float* out, float* in, struct sr_uniform* uniform)
+clip_space(float *out, float *in, struct sr_uniform *uniform)
 {
     /* homogenize vector */
     float tmp[4] = { in[0], in[1], in[2], 1 };
@@ -89,8 +93,9 @@ clip_space(float* out, float* in, struct sr_uniform* uniform)
  * sends the vector 'in' to world space by applying a model matrix 
  * sets the first three indices of 'out' to these coordinates
  */
+
 static void
-world_space(float* out, float* in, struct sr_uniform* uniform)
+world_space(float *out, float *in, struct sr_uniform *uniform)
 {
     /* homogenize vector */
     float tmp_in[4] = { in[0], in[1], in[2], 1 };
@@ -107,8 +112,9 @@ world_space(float* out, float* in, struct sr_uniform* uniform)
  * sends the normal vector 'in' to world space by applying a normal 
  * transform the first three indices of 'out' to these coordinates
  */
+
 static void
-world_space_normal(float* out, float* in, struct sr_uniform* uniform)
+world_space_normal(float *out, float *in, struct sr_uniform *uniform)
 {
     /* homogenize vector */
     float tmp_in[4] = { in[0], in[1], in[2], 1 };
@@ -125,8 +131,9 @@ world_space_normal(float* out, float* in, struct sr_uniform* uniform)
  * sets 'color' to the float triple color of the 
  * texture at coordinates 'u' and 'v' 
  */
+
 static void
-sample_texture(struct sr_texture* texture, float* color, float u, float v)
+sample_texture(struct sr_texture *texture, float *color, float u, float v)
 {
     int x = floorf(u * texture->width);
     int y = texture->height - 1 - floorf(v * texture->height);
@@ -152,10 +159,15 @@ falloff(float x, float inner, float outer) {
  * an ambient, diffuse, and specular intensites to blend 
  * with a base color 
  */
+
 static void
-phong(float* color, float* pos, float* uv, 
-      float* normal, struct sr_uniform* uniform)
-{       
+phong(
+    float *color,
+    float *pos,
+    float *uv, 
+    float *normal,
+    struct sr_uniform *uniform)
+{
     float fatt, intensity, dist;
     float I[4], L[3], R[3], V[3], tmp[4];
     float *Oa, *Od, *Os;
@@ -266,8 +278,9 @@ phong(float* color, float* pos, float* uv,
  ************/
 
 /* copies argb coords over from 'in' to 'out' */
+
 static void 
-color_vs(float* out, float* in, void* uniform)
+color_vs(float *out, float *in, void *uniform)
 {
     clip_space(out, in, uniform);  /* position */
     memcpy(out + 4, in + 3, 3 * sizeof(float));  /* color */
@@ -279,8 +292,8 @@ color_vs(float* out, float* in, void* uniform)
 
 /* uses argb coords to fit color representation */
 static void
-color_fs(uint32_t* out, float* in, void* uniform)
-{   
+color_fs(uint32_t *out, float *in, void *uniform)
+{
     float color[4] = { in[4], in[5], in[6], 1 };
     *out = rgb_int(color);  /* frag color */
 }
@@ -306,8 +319,9 @@ color_fs(uint32_t* out, float* in, void* uniform)
  **************/
 
 /* copies argb coords over from 'in' to 'out' */
+
 static void 
-texture_vs(float* out, float* in, void* uniform)
+texture_vs(float *out, float *in, void *uniform)
 {
     clip_space(out, in, uniform);  /* position */
     memcpy(out + 4, in + 3, 2 * sizeof(float));  /* texture */
@@ -318,10 +332,11 @@ texture_vs(float* out, float* in, void* uniform)
  **************/
 
 /* uses argb coords to fit color representation */
+
 static void
-texture_fs(uint32_t* out, float* in, void* uniform)
+texture_fs(uint32_t *out, float *in, void *uniform)
 {   
-    struct sr_uniform* sr_uniform = (struct sr_uniform*)uniform;
+    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
     float color[4];
     sample_texture(sr_uniform->texture, color, in[4], in[5]); 
     *out = rgb_int(color);  /* frag color */
@@ -351,10 +366,11 @@ texture_fs(uint32_t* out, float* in, void* uniform)
  **********/
 
 /* copies argb coords over from 'in' to 'out' */
+
 static void 
-std_vs(float* out, float* in, void* uniform)
+std_vs(float *out, float *in, void *uniform)
 {
-    struct sr_uniform* sr_uniform = (struct sr_uniform*)uniform;
+    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
 
     /* x y z w */
     clip_space(out, in, sr_uniform);  /* position */
@@ -377,10 +393,11 @@ std_vs(float* out, float* in, void* uniform)
  ************/
 
 /* blends a phong sample with color base */
+
 static void
-phong_fs(uint32_t* out, float* in, void* uniform)
+phong_fs(uint32_t *out, float *in, void *uniform)
 {
-    struct sr_uniform* sr_uniform = (struct sr_uniform*)uniform;
+    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
 
     float color[4];
     normalize(in + 9);

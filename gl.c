@@ -1,26 +1,8 @@
-
 #include <stdlib.h>
 
-#include "sr.h"
+#include "gl.h"
 #include "mat.h"
 #include "state.h"
-
-/**
- * api.c
- * --------
- * an easy interface with a fixed subset of the sr pipeline 
- * for your average use case
- * 
- * provides a uniform with model view projection matrix,
- * and matrix stack-like operations to build it
- * 
- */
-
-/*********************************************************************
- *                                                                   *
- *          global variables that control pipeline state             *
- *                                                                   *
- *********************************************************************/
 
 /* identity matrix */
 static const struct mat4 identity = {
@@ -70,51 +52,51 @@ static struct mat4 mvp = {
     0, 0, 0, 1
 };
 
-static struct light g_lights[SR_MAX_LIGHT_COUNT];
+static struct light g_lights[gl_MAX_LIGHT_COUNT];
 
 static struct material g_material;
 
 static struct mat4* cur_mat;  /* points to whichever matrix stack is being used */
 
-static struct sr_texture g_texture = {
+static struct gl_texture g_texture = {
     .colors = 0,
-    .width = 0,
+    .width  = 0,
     .height = 0
 };
 
 /* framebuffer */
-static struct sr_framebuffer g_fbuf = {
-    .width = 0,
+static struct gl_framebuffer g_fbuf = {
+    .width  = 0,
     .height = 0,
     .colors = 0,
     .depths = 0
 };
 
 /* uniform */
-static struct sr_uniform g_uniform = {
-    .model = &model,
+static struct gl_uniform g_uniform = {
+    .model            = &model,
     .normal_transform = &normal_transform,
-    .mvp = &mvp,
-    .has_texture = 0,
-    .material = &g_material,
-    .texture = &g_texture,
-    .lights = g_lights,
-    .ka = 1,
-    .kd = 1,
-    .ks = 1
+    .mvp              = &mvp,
+    .has_texture      = 0,
+    .material         = &g_material,
+    .texture          = &g_texture,
+    .lights           = g_lights,
+    .ka               = 1,
+    .kd               = 1,
+    .ks               = 1
 };
 
 /* pipeline state */
-static struct sr_pipeline g_pipe = {
-    .fbuf = &g_fbuf,
-    .uniform = (void*)(&g_uniform),
-    .vs = 0,
-    .fs = 0,
-    .pts_in = 0,
-    .n_pts = 0,
-    .n_attr_in = 0,
-    .n_attr_out = 0,
-    .winding = SR_WINDING_ORDER_CCW
+static struct gl_pipeline g_pipe = {
+    .fbuf             = &g_fbuf,
+    .uniform          = (void*)(&g_uniform),
+    .vs               = 0,
+    .fs               = 0,
+    .pts_in           = 0,
+    .n_pts            = 0,
+    .n_attr_in        = 0,
+    .n_attr_out       = 0,
+    .winding          = gl_WINDING_ORDER_CCW
 };
 
 /*********************************************************************
@@ -124,12 +106,12 @@ static struct sr_pipeline g_pipe = {
  *********************************************************************/
 
 /**************
- * sr_renderl *
+ * gl_renderl *
  **************/
 
 /* builds the mvp and renders the global state */
 extern void
-sr_renderl(int* indices, int n_indices, enum sr_primitive prim_type)
+gl_renderl(int *indices, int n_indices, enum gl_primitive prim_type)
 {
     /* create mvp */
     mvp = identity;
@@ -152,7 +134,7 @@ sr_renderl(int* indices, int n_indices, enum sr_primitive prim_type)
     memcpy(g_uniform.cam_pos, tmp, 3 * sizeof(float));
 
     /* send down the pipeline */
-    sr_render(&g_pipe, indices, n_indices, prim_type);
+    gl_render(&g_pipe, indices, n_indices, prim_type);
 }
 
 /*********************************************************************
@@ -162,89 +144,89 @@ sr_renderl(int* indices, int n_indices, enum sr_primitive prim_type)
  *********************************************************************/
 
 /***************
- * sr_bind_pts *
+ * gl_bind_pts *
  ***************/
 
 /* sets points */
 extern void
-sr_bind_pts(float* pts, int n_pts, int n_attr)
+gl_bind_pts(float *pts, int n_pts, int n_attr)
 {
-    g_pipe.pts_in = pts;
-    g_pipe.n_pts = n_pts;
+    g_pipe.pts_in    = pts;
+    g_pipe.n_pts     = n_pts;
     g_pipe.n_attr_in = n_attr;
 }
 
 /***********************
- * sr_bind_framebuffer *
+ * gl_bind_framebuffer *
  ***********************/
 
 /* attaches color and depth buffers to global framebuffer */
 extern void
-sr_bind_framebuffer(int width, int height, uint32_t* colors, float* depths)
+gl_bind_framebuffer(int width, int height, uint32_t *colors, float *depths)
 {
-    g_fbuf.width = width;
+    g_fbuf.width  = width;
     g_fbuf.height = height;
     g_fbuf.colors = colors;
     g_fbuf.depths = depths;
 }
 
 /*******************
- * sr_bind_uniform *
+ * gl_bind_uniform *
  *******************/
 
 /* loads a custom uniform */
 extern void
-sr_bind_uniform(void* uniform)
+gl_bind_uniform(void *uniform)
 {
     g_pipe.uniform = uniform;
 }
 
 /**********************
- * sr_restore_uniform *
+ * gl_restore_uniform *
  **********************/
 
 /* loads default uniform */
 extern void
-sr_restore_uniform()
+gl_restore_uniform()
 {
     g_pipe.uniform = &g_uniform;
 }
 
 /**************
- * sr_bind_vs *
+ * gl_bind_vs *
  **************/
 
 /* sets the vertex shader */
 extern void
-sr_bind_vs(vs_f vs, int n_attr_out)
+gl_bind_vs(vs_f vs, int n_attr_out)
 {
     g_pipe.vs = vs;
     g_pipe.n_attr_out = n_attr_out;
 }
 
 /**************
- * sr_bind_fs *
+ * gl_bind_fs *
  **************/
 
 /* sets the fragment shader */
 extern void
-sr_bind_fs(fs_f fs)
+gl_bind_fs(fs_f fs)
 {
     g_pipe.fs = fs;
 }
 
 /*******************
- * sr_bind_texture *
+ * gl_bind_texture *
  *******************/
 
 /* binds a texture to pipeline */
 extern void
-sr_bind_texture(uint32_t* colors, int width, int height)
+gl_bind_texture(uint32_t *colors, int width, int height)
 {
     g_uniform.has_texture = 1;
-    g_texture.colors = colors;
-    g_texture.width = width;
-    g_texture.height = height;
+    g_texture.colors      = colors;
+    g_texture.width       = width;
+    g_texture.height      = height;
 }
 
 /*********************************************************************
@@ -254,38 +236,38 @@ sr_bind_texture(uint32_t* colors, int width, int height)
  *********************************************************************/
 
 /************
- * sr_light *
+ * gl_light *
  ************/
 
 /* binds a light to pipeline */
 
 extern void 
-sr_light(enum sr_light slot, enum sr_light_attr attr, float* data)
+gl_light(enum gl_light slot, enum gl_light_attr attr, float *data)
 {
     /* split attribute data */
     switch(attr) {
-        case SR_POSITION:
+        case gl_POSITION:
             memcpy(g_lights[slot].pos, data, 3 * sizeof(float));
             break;
-        case SR_DIRECTION:
+        case gl_DIRECTION:
             memcpy(g_lights[slot].dir, data, 3 * sizeof(float));
             break;
-        case SR_COLOR:
+        case gl_COLOR:
             memcpy(g_lights[slot].color, data, 4 * sizeof(float));
             break;
-        case SR_SPOT_ANGLE:
+        case gl_SPOT_ANGLE:
             g_lights[slot].spot_angle = *data;
             break;
-        case SR_SPOT_PENUMBRA:
+        case gl_SPOT_PENUMBRA:
             g_lights[slot].spot_penumbra = *data;
             break;
-        case SR_CONSTANT_ATTENUATION:
+        case gl_CONSTANT_ATTENUATION:
             g_lights[slot].attn_const = *data;
             break;
-        case SR_LINEAR_ATTENUATION:
+        case gl_LINEAR_ATTENUATION:
             g_lights[slot].attn_lin = *data;
             break;
-        case SR_QUADRATIC_ATTENUATION:
+        case gl_QUADRATIC_ATTENUATION:
             g_lights[slot].attn_quad = *data;
             break;
         default:
@@ -294,22 +276,22 @@ sr_light(enum sr_light slot, enum sr_light_attr attr, float* data)
 }
 
 /*************
- * sr_glight *
+ * gl_glight *
  *************/
 
 /* binds global light data to uniform */
 extern void 
-sr_glight(enum sr_light_attr attr, float* data)
+gl_glight(enum gl_light_attr attr, float *data)
 {
     /* split attribute data */
     switch(attr) {
-        case SR_AMBIENT:
+        case gl_AMBIENT:
             g_uniform.ka = *data;
             break;
-        case SR_DIFFUSE:
+        case gl_DIFFUSE:
             g_uniform.kd = *data;
             break;
-        case SR_SPECULAR:
+        case gl_SPECULAR:
             g_uniform.ks = *data;
             break;
         default:
@@ -318,73 +300,73 @@ sr_glight(enum sr_light_attr attr, float* data)
 }
 
 /*****************
- * sr_light_type *
+ * gl_light_type *
  *****************/
 
 /* binds light type to slot */
 
 extern void 
-sr_light_type(enum sr_light slot, enum sr_light_type type)
+gl_light_type(enum gl_light slot, enum gl_light_type type)
 {
     int idx = split_light(slot);
     switch (type) {
-        case SR_DIRECTIONAL:
+        case gl_DIRECTIONAL:
             g_lights[idx].type = 1 << 0;
             break;
-        case SR_POINT:
+        case gl_POINT:
             g_lights[idx].type = 1 << 1;
             break;
-        case SR_SPOT:
+        case gl_SPOT:
             g_lights[idx].type = 1 << 2;
             break;
     }
 }
 
 /*******************
- * sr_light_enable *
+ * gl_light_enable *
  *******************/
 
 /* enables light at specified slot */
 
 extern void 
-sr_light_enable(enum sr_light slot)
+gl_light_enable(enum gl_light slot)
 {
     g_uniform.light_state |= 1 << slot;
 }
 
 /********************
- * sr_light_disable *
+ * gl_light_disable *
  ********************/
 
 /* disables light at specified slot */
 extern void 
-sr_light_disable(enum sr_light slot)
+gl_light_disable(enum gl_light slot)
 {
     g_uniform.light_state &= ~(1 << slot);
 }
 
 /***************
- * sr_material *
+ * gl_material *
  ***************/
 
 /* binds a material to pipeline */
 extern void
-sr_material(enum sr_light_attr attr, float* data)
+gl_material(enum gl_light_attr attr, float *data)
 {
     switch(attr) {
-        case SR_AMBIENT:
+        case gl_AMBIENT:
             memcpy(g_material.ambient, data, 4 * sizeof(float));
             break;
-       case SR_DIFFUSE:
+       case gl_DIFFUSE:
             memcpy(g_material.diffuse, data, 4 * sizeof(float));
             break;
-        case SR_SPECULAR:
+        case gl_SPECULAR:
             memcpy(g_material.specular, data, 4 * sizeof(float));
             break;
-        case SR_BLEND:
+        case gl_BLEND:
             g_material.blend = *data;
             break;
-        case SR_SHININESS:
+        case gl_SHININESS:
             g_material.shininess = *data;
             break;
         default:
@@ -399,47 +381,47 @@ sr_material(enum sr_light_attr attr, float* data)
  *********************************************************************/
 
 /******************
- * sr_matrix_mode *
+ * gl_matrix_mode *
  ******************/
 
 /* sets current matrix stack */
 extern void
-sr_matrix_mode(enum sr_matrix_mode mode)
+gl_matrix_mode(enum gl_matrix_mode mode)
 {
     switch (mode) {
-        case SR_MODEL_MATRIX:
+        case gl_MODEL_MATRIX:
             cur_mat = &model;
             break;
-        case SR_VIEW_MATRIX:
+        case gl_VIEW_MATRIX:
             cur_mat = &view;
             break;
-        case SR_PROJECTION_MATRIX:
+        case gl_PROJECTION_MATRIX:
             cur_mat = &proj;
             break;
-        case SR_MVP_MATRIX:
+        case gl_MVP_MATRIX:
             cur_mat = &mvp;
             break;
     }
 }
 
 /***************
- * sr_dump_mat *
+ * gl_dump_mat *
  ***************/
 
 /* dumps contents of current matrix to given buffer in row major order */
 extern void
-sr_dump_matrix(float* dest)
+gl_dump_matrix(float *dest)
 {
-    dest[0] = cur_mat->e00;
-    dest[1] = cur_mat->e01;
-    dest[2] = cur_mat->e02;
-    dest[3] = cur_mat->e03;
-    dest[4] = cur_mat->e10;
-    dest[5] = cur_mat->e11;
-    dest[6] = cur_mat->e12;
-    dest[7] = cur_mat->e13;
-    dest[8] = cur_mat->e20;
-    dest[9] = cur_mat->e21;
+    dest[0]  = cur_mat->e00;
+    dest[1]  = cur_mat->e01;
+    dest[2]  = cur_mat->e02;
+    dest[3]  = cur_mat->e03;
+    dest[4]  = cur_mat->e10;
+    dest[5]  = cur_mat->e11;
+    dest[6]  = cur_mat->e12;
+    dest[7]  = cur_mat->e13;
+    dest[8]  = cur_mat->e20;
+    dest[9]  = cur_mat->e21;
     dest[10] = cur_mat->e22;
     dest[11] = cur_mat->e23;
     dest[12] = cur_mat->e30;
@@ -449,38 +431,38 @@ sr_dump_matrix(float* dest)
 }
 
 /******************
- * sr_load_matrix *
+ * gl_load_matrix *
  ******************/
 
 /* loads the entries in a 16 length row major float array to current matrix */
 extern void
-sr_load_matrix(float* src)
+gl_load_matrix(float *glc)
 {
-    cur_mat->e00 = src[0];
-    cur_mat->e01 = src[1];
-    cur_mat->e02 = src[2];
-    cur_mat->e03 = src[3];
-    cur_mat->e10 = src[4];
-    cur_mat->e11 = src[5];
-    cur_mat->e12 = src[6];
-    cur_mat->e13 = src[7];
-    cur_mat->e20 = src[8];
-    cur_mat->e21 = src[9];
-    cur_mat->e22 = src[10];
-    cur_mat->e23 = src[11];
-    cur_mat->e30 = src[12];
-    cur_mat->e31 = src[13];
-    cur_mat->e32 = src[14];
-    cur_mat->e33 = src[15];
+    cur_mat->e00 = glc[0];
+    cur_mat->e01 = glc[1];
+    cur_mat->e02 = glc[2];
+    cur_mat->e03 = glc[3];
+    cur_mat->e10 = glc[4];
+    cur_mat->e11 = glc[5];
+    cur_mat->e12 = glc[6];
+    cur_mat->e13 = glc[7];
+    cur_mat->e20 = glc[8];
+    cur_mat->e21 = glc[9];
+    cur_mat->e22 = glc[10];
+    cur_mat->e23 = glc[11];
+    cur_mat->e30 = glc[12];
+    cur_mat->e31 = glc[13];
+    cur_mat->e32 = glc[14];
+    cur_mat->e33 = glc[15];
 }
 
 /********************
- * sr_load_identity *
+ * gl_load_identity *
  ********************/
 
 /* sets current matrix to the identity */
 extern void
-sr_load_identity()
+gl_load_identity()
 {
    *cur_mat = identity;
 }
@@ -492,12 +474,12 @@ sr_load_identity()
  *********************************************************************/
 
 /****************
- * sr_translate *
+ * gl_translate *
  ****************/
 
 /* pushes an affine transformation with translation of x, y, z */
 extern void
-sr_translate(float x, float y, float z)
+gl_translate(float x, float y, float z)
 {
     struct mat4 t = {
         1, 0, 0, x,
@@ -510,12 +492,12 @@ sr_translate(float x, float y, float z)
 }
 
 /***************
- * sr_rotate_x *
+ * gl_rotate_x *
  ***************/
 
 /* pushes a matrix rotating about the x axis by t radians */
 extern void
-sr_rotate_x(float t)
+gl_rotate_x(float t)
 {
     float c = cos(t);
     float s = sin(t);
@@ -531,13 +513,13 @@ sr_rotate_x(float t)
 }
 
 /***************
- * sr_rotate_y *
+ * gl_rotate_y *
  ***************/
 
 /* pushes a matrix rotating about the y axis by t radians */
 
 void
-sr_rotate_y(float t)
+gl_rotate_y(float t)
 {
     float c = cos(t);
     float s = sin(t);
@@ -553,13 +535,13 @@ sr_rotate_y(float t)
 }
 
 /***************
- * sr_rotate_z *
+ * gl_rotate_z *
  ***************/
 
 /* pushes a matrix rotating about the z axis by t radians */
 
 void
-sr_rotate_z(float t)
+gl_rotate_z(float t)
 {
     float c = cos(t);
     float s = sin(t);
@@ -575,12 +557,12 @@ sr_rotate_z(float t)
 }
 
 /************
- * sr_scale *
+ * gl_scale *
  ************/
 
 /* pushes a scale matrix by sx, sy, sz */
 void
-sr_scale(float sx, float sy, float sz)
+gl_scale(float sx, float sy, float sz)
 {
     struct mat4 s = {
         sx, 0,  0,  0,
@@ -599,7 +581,7 @@ sr_scale(float sx, float sy, float sz)
  *********************************************************************/
 
 /**************
- * sr_look_at *
+ * gl_look_at *
  **************/
 
 /** 
@@ -610,7 +592,7 @@ sr_scale(float sx, float sy, float sz)
  */
 
 void
-sr_look_at(float ex, float ey, float ez, 
+gl_look_at(float ex, float ey, float ez, 
            float lx, float ly, float lz, 
            float ux, float uy, float uz)
 {
@@ -654,7 +636,7 @@ sr_look_at(float ex, float ey, float ez,
     };
 
     matmul(cur_mat, &m);
-    sr_translate(-ex, -ey, -ez);
+    gl_translate(-ex, -ey, -ez);
 }
 
 /*********************************************************************
@@ -664,51 +646,51 @@ sr_look_at(float ex, float ey, float ez,
  *********************************************************************/
 
 /******************
- * sr_perspective *
+ * gl_perspective *
  ******************/
 
 /* pushes a perspective matrix specified by fov */
 
 void
-sr_perspective(float fovy, float aspect, float near, float far)
+gl_perspective(float fovy, float aspect, float near, float far)
 {
-    float f = 1 / (tan(fovy / 2));
-    float e22 = (far + near) / (near - far);
-    float e23 =  (2 * far * near) / (near - far);
-    float a = aspect;
+    float f   = 1                / (tan(fovy / 2));
+    float e22 = (far + near)     / (near - far);
+    float e23 = (2 * far * near) / (near - far);
+    float a   = aspect;
 
     struct mat4 p = {
         f/a, 0,   0,    0,
         0,   f,   0,    0,
         0,   0,   e22,  e23,
-        0,   0,   -1,    0
+        0,   0,   -1,   0
     };
 
     matmul(cur_mat, &p);
 }
 
 /**************
- * sr_frustum *
+ * gl_frustum *
  **************/
 
 /* pushes a projection matrix based on frustum */
 
 void
-sr_frustum(float left, float right, float bottom, 
+gl_frustum(float left, float right, float bottom, 
            float top, float near, float far)
 {
-    float e00 = (2 * near) / (right - left);
-    float e11 = (2 * near) / (top - bottom);
-    float e02 = (right + left) / (right - left);
-    float e12 = (top + bottom) / (top - bottom);
-    float e22 = -(far + near) / (near - far);
+    float e00 = (2 * near)        / (right - left);
+    float e11 = (2 * near)        / (top - bottom);
+    float e02 = (right + left)    / (right - left);
+    float e12 = (top + bottom)    / (top - bottom);
+    float e22 = -(far + near)     / (near - far);
     float e23 = -(2 * far * near) / (near - far);
 
     struct mat4 p = {
         e00, 0,   e02,  0,
         0,   e11, e12,  0,
         0,   0,   e22,  e23,
-        0,   0,   -1,    0
+        0,   0,   -1,   0
     };
 
     matmul(cur_mat, &p);

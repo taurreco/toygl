@@ -1,20 +1,5 @@
-
 #include "mat.h"
 #include <math.h>
-
-/**
- * sr_math.c
- * --------
- * provides an internal matrix representation (mat4)
- * and associated operations for the sr lib
- * 
- */
-
-/*********************************************************************
- *                                                                   *
- *                             matrices                              *
- *                                                                   *
- *********************************************************************/
 
 /**********
  * matmul *
@@ -64,11 +49,11 @@ invert(struct mat4* a)
               a->e31 * a->e13 * a->e22;
 
     tmp.e10 = -a->e10 * a->e22 * a->e33 + 
-              a->e10 * a->e23 * a->e32 + 
-              a->e20 * a->e12 * a->e33 - 
-              a->e20 * a->e13 * a->e32 - 
-              a->e30 * a->e12 * a->e23 + 
-              a->e30 * a->e13 * a->e22;
+               a->e10 * a->e23 * a->e32 + 
+               a->e20 * a->e12 * a->e33 - 
+               a->e20 * a->e13 * a->e32 - 
+               a->e30 * a->e12 * a->e23 + 
+               a->e30 * a->e13 * a->e22;
 
     tmp.e20 = a->e10 * a->e21 * a->e33 - 
               a->e10 * a->e23 * a->e31 - 
@@ -85,25 +70,25 @@ invert(struct mat4* a)
                a->e30 * a->e12 * a->e21;
 
     tmp.e01 = -a->e01 * a->e22 * a->e33 + 
-              a->e01 * a->e23 * a->e32 + 
-              a->e21 * a->e02 * a->e33 - 
-              a->e21 * a->e03 * a->e32 - 
-              a->e31 * a->e02 * a->e23 + 
-              a->e31 * a->e03 * a->e22;
+               a->e01 * a->e23 * a->e32 + 
+               a->e21 * a->e02 * a->e33 - 
+               a->e21 * a->e03 * a->e32 - 
+               a->e31 * a->e02 * a->e23 + 
+               a->e31 * a->e03 * a->e22;
 
-    tmp.e11 = a->e00  * a->e22 * a->e33 - 
-              a->e00  * a->e23 * a->e32 - 
-              a->e20  * a->e02 * a->e33 + 
-              a->e20  * a->e03 * a->e32 + 
+    tmp.e11 = a->e00 * a->e22 * a->e33 - 
+              a->e00 * a->e23 * a->e32 - 
+              a->e20 * a->e02 * a->e33 + 
+              a->e20 * a->e03 * a->e32 + 
               a->e30 * a->e02 * a->e23 - 
               a->e30 * a->e03 * a->e22;
 
-    tmp.e21 = -a->e00  * a->e21 * a->e33 + 
-              a->e00  * a->e23 * a->e31 + 
-              a->e20  * a->e01 * a->e33 - 
-              a->e20  * a->e03 * a->e31 - 
-              a->e30 * a->e01 * a->e23 + 
-              a->e30 * a->e03 * a->e21;
+    tmp.e21 = -a->e00 * a->e21 * a->e33 + 
+               a->e00 * a->e23 * a->e31 + 
+               a->e20 * a->e01 * a->e33 - 
+               a->e20 * a->e03 * a->e31 - 
+               a->e30 * a->e01 * a->e23 + 
+               a->e30 * a->e03 * a->e21;
 
     tmp.e31 = a->e00 * a->e21 * a->e32 - 
               a->e00 * a->e22 * a->e31 - 
@@ -120,11 +105,11 @@ invert(struct mat4* a)
               a->e31 * a->e03 * a->e12;
 
     tmp.e12 = -a->e00 * a->e12 * a->e33 + 
-              a->e00 * a->e13 * a->e32 + 
-              a->e10 * a->e02 * a->e33 - 
-              a->e10 * a->e03 * a->e32 - 
-              a->e30 * a->e02 * a->e13 + 
-              a->e30 * a->e03 * a->e12;
+               a->e00 * a->e13 * a->e32 + 
+               a->e10 * a->e02 * a->e33 - 
+               a->e10 * a->e03 * a->e32 - 
+               a->e30 * a->e02 * a->e13 + 
+               a->e30 * a->e03 * a->e12;
 
     tmp.e22 = a->e00 * a->e11 * a->e33 - 
               a->e00 * a->e13 * a->e31 - 
@@ -134,18 +119,18 @@ invert(struct mat4* a)
               a->e30 * a->e03 * a->e11;
 
     tmp.e32 = -a->e00 * a->e11 * a->e32 + 
-              a->e00 * a->e12 * a->e31 + 
-              a->e10 * a->e01 * a->e32 - 
-              a->e10 * a->e02 * a->e31 - 
-              a->e30 * a->e01 * a->e12 + 
-              a->e30 * a->e02 * a->e11;
+               a->e00 * a->e12 * a->e31 + 
+               a->e10 * a->e01 * a->e32 - 
+               a->e10 * a->e02 * a->e31 - 
+               a->e30 * a->e01 * a->e12 + 
+               a->e30 * a->e02 * a->e11;
 
     tmp.e03 = -a->e01 * a->e12 * a->e23 + 
-              a->e01 * a->e13 * a->e22 + 
-              a->e11 * a->e02 * a->e23 - 
-              a->e11 * a->e03 * a->e22 - 
-              a->e21 * a->e02 * a->e13 + 
-              a->e21 * a->e03 * a->e12;
+               a->e01 * a->e13 * a->e22 + 
+               a->e11 * a->e02 * a->e23 - 
+               a->e11 * a->e03 * a->e22 - 
+               a->e21 * a->e02 * a->e13 + 
+               a->e21 * a->e03 * a->e12;
 
     tmp.e13 = a->e00 * a->e12 * a->e23 - 
               a->e00 * a->e13 * a->e22 - 
@@ -155,11 +140,11 @@ invert(struct mat4* a)
               a->e20 * a->e03 * a->e12;
 
     tmp.e23 = -a->e00 * a->e11 * a->e23 + 
-              a->e00 * a->e13 * a->e21 + 
-              a->e10 * a->e01 * a->e23 - 
-              a->e10 * a->e03 * a->e21 - 
-              a->e20 * a->e01 * a->e13 + 
-              a->e20 * a->e03 * a->e11;
+               a->e00 * a->e13 * a->e21 + 
+               a->e10 * a->e01 * a->e23 - 
+               a->e10 * a->e03 * a->e21 - 
+               a->e20 * a->e01 * a->e13 + 
+               a->e20 * a->e03 * a->e11;
 
     tmp.e33 = a->e00 * a->e11 * a->e22 - 
               a->e00 * a->e12 * a->e21 - 
@@ -205,7 +190,7 @@ invert(struct mat4* a)
 /* transpose of a 4x4 matrix */
 
 void
-transpose(struct mat4* a) {
+transpose(struct mat4 *a) {
     struct mat4 tmp;
     tmp.e00 = a->e00;
     tmp.e01 = a->e10;
@@ -233,7 +218,7 @@ transpose(struct mat4* a) {
 /* converts 4x4 matrix to its upper 3x3 matrix by filling 0s */
 
 void
-upper_3x3(struct mat4* a) {
+upper_3x3(struct mat4 *a) {
     a->e03 = 0;
     a->e13 = 0;
     a->e23 = 0;
@@ -243,13 +228,6 @@ upper_3x3(struct mat4* a) {
     a->e33 = 1;
 }
 
-
-/*********************************************************************
- *                                                                   *
- *                           vec4 operations                         *
- *                                                                   *
- *********************************************************************/
-
 /***************
  * vec4_matmul *
  ***************/
@@ -257,7 +235,7 @@ upper_3x3(struct mat4* a) {
 /* applys the matrix 'b' to vector 'c', stores result in vector 'a' */ 
 
 void
-vec4_matmul(float* a, struct mat4* b, float* c)
+vec4_matmul(float *a, struct mat4 *b, float *c)
 {
     a[0] = c[0] * b->e00 + c[1] * b->e01 + c[2] * b->e02 + c[3] * b->e03;
     a[1] = c[0] * b->e10 + c[1] * b->e11 + c[2] * b->e12 + c[3] * b->e13;
@@ -272,7 +250,7 @@ vec4_matmul(float* a, struct mat4* b, float* c)
 /* multiplies vec4 'b' and 'c' componentwise, result in 'a' */
 
 void
-vec4_mul(float* a, float* b, float* c)
+vec4_mul(float *a, float *b, float *c)
 {
     a[0] = b[0] * c[0];
     a[1] = b[1] * c[1];
@@ -287,7 +265,7 @@ vec4_mul(float* a, float* b, float* c)
 /* adds vec4 'b' to 'c' and stores result in 'a' */
 
 void
-vec4_add(float* a, float* b, float* c)
+vec4_add(float *a, float *b, float *c)
 {
     a[0] = b[0] + c[0];
     a[1] = b[1] + c[1];
@@ -302,7 +280,7 @@ vec4_add(float* a, float* b, float* c)
 /* multiplies vec4 'b' by scalar 'c' and stores result in 'a' */
 
 void
-vec4_scale(float* a, float* b, float c)
+vec4_scale(float *a, float *b, float c)
 {
     a[0] = b[0] * c;
     a[1] = b[1] * c;
@@ -317,19 +295,13 @@ vec4_scale(float* a, float* b, float c)
 /* linear interpolation for vec4s, result in 'a' */
 
 void
-lerp(float* a, float* b, float* c, float alpha)
+lerp(float *a, float *b, float *c, float alpha)
 {
     a[0] = b[0] + (c[0] - b[0]) * alpha;
     a[1] = b[1] + (c[1] - b[1]) * alpha;
     a[2] = b[2] + (c[2] - b[2]) * alpha;
     a[3] = b[3] + (c[3] - b[3]) * alpha;
 }
-
-/*********************************************************************
- *                                                                   *
- *                           vec3 operations                         *
- *                                                                   *
- *********************************************************************/
 
 /************
  * vec3_sub *
@@ -338,7 +310,7 @@ lerp(float* a, float* b, float* c, float alpha)
 /* subtracts vec3 'c' from 'b' and stores result in 'a' */
 
 void
-vec3_sub(float* a, float* b, float* c)
+vec3_sub(float *a, float *b, float *c)
 {
     a[0] = b[0] - c[0];
     a[1] = b[1] - c[1];
@@ -352,7 +324,7 @@ vec3_sub(float* a, float* b, float* c)
 /* adds vec3 'b' to 'c' and stores result in 'a' */
 
 void
-vec3_add(float* a, float* b, float* c)
+vec3_add(float *a, float *b, float *c)
 {
     a[0] = b[0] + c[0];
     a[1] = b[1] + c[1];
@@ -366,18 +338,12 @@ vec3_add(float* a, float* b, float* c)
 /* multiplies vec3 'b' by scalar 'c' and stores result in 'a' */
 
 void
-vec3_scale(float* a, float* b, float c)
+vec3_scale(float *a, float *b, float c)
 {
     a[0] = b[0] * c;
     a[1] = b[1] * c;
     a[2] = b[2] * c;
 }
-
-/*********************************************************************
- *                                                                   *
- *                              geometry                             *
- *                                                                   *
- *********************************************************************/
 
 /***********
  * reflect *
@@ -386,7 +352,7 @@ vec3_scale(float* a, float* b, float c)
 /* reflects a vec3 'l' across a normal 'n', result in 'r' */
 
 void
-reflect(float* r, float* l, float* n)
+reflect(float *r, float *l, float *n)
 {
     float tmp[3];
     vec3_scale(tmp, n, 2 * dot(l, n));
@@ -400,7 +366,7 @@ reflect(float* r, float* l, float* n)
 /* dot product of two vec3s */
 
 float
-dot(float* a, float* b)
+dot(float *a, float *b)
 {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
@@ -412,7 +378,7 @@ dot(float* a, float* b)
 /* applys the cross product 'b' x 'c', stores result in 'a' */
 
 void
-cross(float* a, float* b, float* c)
+cross(float *a, float *b, float *c)
 {
     a[0] = (b[1] * c[2]) - (b[2] * c[1]);
     a[1] = (b[2] * c[0]) - (b[0] * c[2]);
@@ -426,7 +392,7 @@ cross(float* a, float* b, float* c)
 /* returns the magnitude of a vec3 */
 
 float
-magnitude(float* a)
+magnitude(float *a)
 {
     return sqrt(pow(a[0], 2) + pow(a[1], 2) + pow(a[2], 2));
 }
@@ -438,19 +404,13 @@ magnitude(float* a)
 /* normalizes vec3 in place */
 
 void
-normalize(float* a)
+normalize(float *a)
 {
     float m = magnitude(a);
     a[0] = a[0] / m;
     a[1] = a[1] / m;
     a[2] = a[2] / m;
 }
-
-/*********************************************************************
- *                                                                   *
- *                                misc                               *
- *                                                                   *
- *********************************************************************/
 
 /***********
  * radians *
