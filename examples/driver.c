@@ -14,11 +14,11 @@
  * 
  */
 
-/*********************************************************************
- *                                                                   *
- *                          initialize data                          *
- *                                                                   *
- *********************************************************************/
+/***************************************************************
+ *                                                             *
+ *                       initialize data                       *
+ *                                                             *
+ ***************************************************************/
 
 int SCREEN_WIDTH = 1024;
 int SCREEN_HEIGHT = 768;
@@ -26,11 +26,11 @@ int SCREEN_HEIGHT = 768;
 uint32_t* colors;
 float* depths;
 
-/*********************************************************************
- *                                                                   *
- *                            render loop                            *
- *                                                                   *
- *********************************************************************/
+/***************************************************************
+ *                                                             *
+ *                        render loop                          *
+ *                                                             *
+ ***************************************************************/
 
 /********
  * main *
@@ -51,19 +51,27 @@ main(int argc, char* args[])
 
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("SDL", 
-                         SDL_WINDOWPOS_UNDEFINED, 
-                         SDL_WINDOWPOS_UNDEFINED, 
-                         SCREEN_WIDTH, SCREEN_HEIGHT, 
-                         SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow(
+        "SDL", 
+        SDL_WINDOWPOS_UNDEFINED, 
+        SDL_WINDOWPOS_UNDEFINED, 
+        SCREEN_WIDTH, SCREEN_HEIGHT, 
+        SDL_WINDOW_SHOWN
+    );
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 
-                             SDL_RENDERER_ACCELERATED);
+    SDL_Renderer* renderer = SDL_CreateRenderer(
+        window,
+        -1, 
+        SDL_RENDERER_ACCELERATED
+    );
 
-    SDL_Texture* texture = SDL_CreateTexture(renderer, 
-                           SDL_PIXELFORMAT_ARGB8888, 
-                           SDL_TEXTUREACCESS_STREAMING, 
-                           SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_Texture* texture = SDL_CreateTexture(
+        renderer, 
+        SDL_PIXELFORMAT_ARGB8888, 
+        SDL_TEXTUREACCESS_STREAMING, 
+        SCREEN_WIDTH,
+        SCREEN_HEIGHT
+    );
 
     /* the loop */
     
