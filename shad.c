@@ -9,7 +9,7 @@ struct texture {
 };
 
 struct light {
-    enum sr_light_type type;
+    enum gl_light_type type;
     float pos[3];
     float color[4];
     float dir[3];
@@ -110,7 +110,7 @@ rgb_float(float *a, uint32_t b)
  */
 
 static void
-clip_space(float *out, float *in, struct sr_uniform *uniform)
+clip_space(float *out, float *in, struct gl_uniform *uniform)
 {
     /* homogenize vector */
     float tmp[4] = { in[0], in[1], in[2], 1 };
@@ -127,7 +127,7 @@ clip_space(float *out, float *in, struct sr_uniform *uniform)
  */
 
 static void
-world_space(float *out, float *in, struct sr_uniform *uniform)
+world_space(float *out, float *in, struct gl_uniform *uniform)
 {
     /* homogenize vector */
     float tmp_in[4] = { in[0], in[1], in[2], 1 };
@@ -146,7 +146,7 @@ world_space(float *out, float *in, struct sr_uniform *uniform)
  */
 
 static void
-world_space_normal(float *out, float *in, struct sr_uniform *uniform)
+world_space_normal(float *out, float *in, struct gl_uniform *uniform)
 {
     /* homogenize vector */
     float tmp_in[4] = { in[0], in[1], in[2], 1 };
@@ -165,7 +165,7 @@ world_space_normal(float *out, float *in, struct sr_uniform *uniform)
  */
 
 static void
-sample_texture(struct sr_texture *texture, float *color, float u, float v)
+sample_texture(struct gl_texture *texture, float *color, float u, float v)
 {
     int x = floorf(u * texture->width);
     int y = texture->height - 1 - floorf(v * texture->height);
@@ -198,7 +198,7 @@ phong(
     float *pos,
     float *uv, 
     float *normal,
-    struct sr_uniform *uniform)
+    struct gl_uniform *uniform)
 {
     float fatt, intensity, dist;
     float I[4], L[3], R[3], V[3], tmp[4];
@@ -221,7 +221,7 @@ phong(
     vec4_scale(tmp, Oa, ka);
     vec4_add(color, color, tmp);
 
-    for (int i = 0; i < SR_MAX_LIGHT_COUNT; i++) {
+    for (int i = 0; i < gl_MAX_LIGHT_COUNT; i++) {
         if (uniform->light_state & (1 << i)) {
             struct light light = uniform->lights[i];
 
@@ -368,9 +368,9 @@ texture_vs(float *out, float *in, void *uniform)
 static void
 texture_fs(uint32_t *out, float *in, void *uniform)
 {   
-    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
+    struct gl_uniform *gl_uniform = (struct gl_uniform *)uniform;
     float color[4];
-    sample_texture(sr_uniform->texture, color, in[4], in[5]); 
+    sample_texture(gl_uniform->texture, color, in[4], in[5]); 
     *out = rgb_int(color);  /* frag color */
 }
 
@@ -402,19 +402,19 @@ texture_fs(uint32_t *out, float *in, void *uniform)
 static void 
 std_vs(float *out, float *in, void *uniform)
 {
-    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
+    struct gl_uniform *gl_uniform = (struct gl_uniform *)uniform;
 
     /* x y z w */
-    clip_space(out, in, sr_uniform);  /* position */
+    clip_space(out, in, gl_uniform);  /* position */
 
     /* wx, wy, wz */
-    world_space(out + 4, in, sr_uniform);
+    world_space(out + 4, in, gl_uniform);
 
     /* u v */
     memcpy(out + 7, in + 3, 2 * sizeof(float));
 
     /* nx ny nz */
-    world_space_normal(out + 9, in + 5, sr_uniform);
+    world_space_normal(out + 9, in + 5, gl_uniform);
 
     /* normalize them */
     normalize(out + 9);
@@ -429,11 +429,11 @@ std_vs(float *out, float *in, void *uniform)
 static void
 phong_fs(uint32_t *out, float *in, void *uniform)
 {
-    struct sr_uniform *sr_uniform = (struct sr_uniform *)uniform;
+    struct gl_uniform *gl_uniform = (struct gl_uniform *)uniform;
 
     float color[4];
     normalize(in + 9);
-    phong(color, in + 4, in + 7, in + 9, sr_uniform);
+    phong(color, in + 4, in + 7, in + 9, gl_uniform);
     *out = rgb_int(color);
 }
 
@@ -448,15 +448,15 @@ phong_fs(uint32_t *out, float *in, void *uniform)
  *********/
 
 void
-sr_bind_color_vs()
+gl_bind_color_vs()
 {
-    sr_bind_vs(color_vs, 7);
+    gl_bind_vs(color_vs, 7);
 }
 
 void
-sr_bind_color_fs()
+gl_bind_color_fs()
 {
-    sr_bind_fs(color_fs);
+    gl_bind_fs(color_fs);
 }
 
 /***********
@@ -464,15 +464,15 @@ sr_bind_color_fs()
  ***********/
 
 void
-sr_bind_texture_vs()
+gl_bind_texture_vs()
 {
-    sr_bind_vs(texture_vs, 6);
+    gl_bind_vs(texture_vs, 6);
 }
 
 void
-sr_bind_texture_fs()
+gl_bind_texture_fs()
 {
-    sr_bind_fs(texture_fs);
+    gl_bind_fs(texture_fs);
 }
 
 /*********
@@ -480,13 +480,13 @@ sr_bind_texture_fs()
  *********/
 
 void
-sr_bind_std_vs()
+gl_bind_std_vs()
 {
-    sr_bind_vs(std_vs, 12);
+    gl_bind_vs(std_vs, 12);
 }
 
 void
-sr_bind_phong_fs()
+gl_bind_phong_fs()
 {
-    sr_bind_fs(phong_fs);
+    gl_bind_fs(phong_fs);
 }

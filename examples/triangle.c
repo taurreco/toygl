@@ -1,18 +1,9 @@
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "driver.h"
-#include "sr.h"
-
-/**
- * basic_triangle.c
- * --------
- * this is *almost* the bare minimum setup to
- * produce some cool graphics with the sr library!
- * 
- */
+#include "gl.h"
 
 /***************************************************************
  *                                                             *
@@ -40,6 +31,7 @@ int indices[3] = {0, 1, 2};
  ******/
 
 /* emits a clip space vertex given an object space vertex */
+
 static void 
 vs(float* out, float* in, void* uniform)
 {
@@ -81,13 +73,14 @@ fs(uint32_t* out, float* in, void* uniform)
  *********/
 
 /* runs only once in the begining */
+
 extern void
 start()  
 {
-    sr_bind_pts(pts, 3, 6);
-    sr_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
-    sr_bind_vs(vs, 7);
-    sr_bind_fs(fs);
+    gl_bind_pts(pts, 3, 6);
+    gl_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
+    gl_bind_vs(vs, 7);
+    gl_bind_fs(fs);
 }
 
 /***************************************************************
@@ -101,10 +94,11 @@ start()
  **********/
 
 /* runs every frame */
+
 extern void
 update(float dt)
 {
-    sr_renderl(indices, 3, SR_TRIANGLE_LIST);
+    gl_renderl(indices, 3, SR_TRIANGLE_LIST);
 }
 
 /***************************************************************
