@@ -9,6 +9,10 @@
 #define GL_WINDING_ORDER_CCW 1
 #define GL_WINDING_ORDER_CW -1
 
+
+typedef void (*vs_f)(float* out, float* in, void* uniform);
+typedef void (*fs_f)(uint32_t *out, float *in, void *uniform);
+
 enum gl_clip_plane {
     GL_CLIP_LEFT_PLANE = 1 << 0,
     GL_CLIP_BOTTOM_PLANE = 1 << 1,
@@ -32,7 +36,7 @@ enum gl_matrix_mode {
     GL_MVP_MATRIX
 };
 
-enum gl_light {
+enum gl_light_slot {
     GL_LIGHT_1 = 0,
     GL_LIGHT_2 = 1,
     GL_LIGHT_3 = 2,
@@ -57,16 +61,14 @@ enum gl_light_attr {
     GL_SPOT_PENUMBRA,
     GL_CONSTANT_ATTENUATION,
     GL_LINEAR_ATTENUATION,
-    GL_QUADRATIC_ATTENUATION
+    GL_QUADRATIC_ATTENUATION,
 };
 
 enum gl_light_type {
     GL_DIRECTIONAL,
     GL_POINT,
-    GL_SPOT
+    GL_SPOT,
 };
-
-typedef void (*fs_f)(uint32_t *out, float *in, void *uniform);
 
 struct gl_framebuffer {
     uint32_t *colors;
@@ -87,20 +89,28 @@ struct gl_pipeline {
     int winding;
 };
 
-void gl_bind_vertices(float *pts, int n_pts, int n_attr);
-void gl_bind_framebuffer(int width, int height, uint32_t *colors, float *depths);
-void gl_bind_uniform(void *uniform);
+struct gl_obj {
+    float *pts;
+    int *indices;
+    int n_pts;
+    int n_indices;
+    int n_attr;
+};
+
+struct gl_obj *gl_load_obj(char *file);
+void gl_destroy_obj(struct gl_obj *gl_obj);
+int gl_load_tga(char *file, uint32_t **colors, int *width, int *height);
+
+
 void gl_restore_uniform();
-void gl_bind_texture(uint32_t *colors, int width, int height);
-void gl_bind_base_color(float r, float g, float b);
 void gl_renderl(int *indices, int n_indices, enum gl_primitive prim_type);
 void gl_render(struct gl_pipeline *pipe, int *indices, int n_indices, enum gl_primitive prim_type);
 
-void gl_light(enum gl_light slot, enum gl_light_attr attr, float *data);
+void gl_light(enum gl_light_slot slot, enum gl_light_attr attr, float *data);
 void gl_glight(enum gl_light_attr attr, float *data);
-void gl_light_type(enum gl_light slot, enum gl_light_type type);
-void gl_light_enable(enum gl_light slot);
-void gl_light_disable(enum gl_light slot);
+void gl_light_type(enum gl_light_slot slot, enum gl_light_type type);
+void gl_light_enable(enum gl_light_slot slot);
+void gl_light_disable(enum gl_light_slot slot);
 void gl_material(enum gl_light_attr attr, float *data);
 
 void gl_matrix_mode(enum gl_matrix_mode mode);
@@ -116,6 +126,11 @@ void gl_rotate_z(float t);
 void gl_scale(float sx, float sy, float sz);
 void gl_look_at(float ex, float ey, float ez, float cx, float cy, float cz, float ux, float uy, float uz);
 
+void gl_bind_vertices(float *pts, int n_pts, int n_attr);
+void gl_bind_framebuffer(int width, int height, uint32_t *colors, float *depths);
+void gl_bind_uniform(void *uniform);
+void gl_bind_texture(uint32_t *colors, int width, int height);
+void gl_bind_base_color(float r, float g, float b);
 void gl_bind_custom_vs(vs_f vs, int n_attr_out);
 void gl_bind_custom_fs(fs_f fs);
 void gl_bind_color_vs();

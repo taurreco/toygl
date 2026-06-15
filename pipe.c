@@ -1,16 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sr.h"
-#include "sr_priv.h"
-
-/**
- * sr_pipe.c
- * --------
- * implementation of the internal graphics pipeline,
- * resembling roughly how its done in hardware
- * 
- */
+#include "gl.h"
+#include "clip.h"
+#include "rast.h"
 
 /***************************************************************
  *                                                             *
@@ -27,9 +20,11 @@
 static int
 winding_order(int winding, float *v0, float *v1, float *v2)
 {
-    float e01 = (v1[0] - v0[0]) * (v1[1] + v0[1]);
-    float e12 = (v2[0] - v1[0]) * (v2[1] + v1[1]);
-    float e20 = (v0[0] - v2[0]) * (v0[1] + v2[1]);
+    float e01, e12, e20;
+    
+    e01 = (v1[0] - v0[0]) * (v1[1] + v0[1]);
+    e12 = (v2[0] - v1[0]) * (v2[1] + v1[1]);
+    e20 = (v0[0] - v2[0]) * (v0[1] + v2[1]);
 
     return (e01 + e12 + e20) * winding > 0;  /* same sign */
 }
@@ -42,27 +37,27 @@ winding_order(int winding, float *v0, float *v1, float *v2)
 
 static void 
 draw_prim(
-    struct raster_context *rast,
+    struct raster *rast,
     float *pts, 
     int n_pts,
-    enum sr_primitive prim_type)
+    enum gl_primitive prim_type)
 {
     switch (prim_type) {
-        case SR_POINT_LIST:    /* point list */
+        case GL_POINT_LIST:    /* point list */
             for (int i = 0; i < n_pts; i++) {
                 draw_pt(rast, pts + i * rast->n_attr);
             }
             break;
 
-        case SR_LINE_LIST:
-        case SR_LINE_STRIP:    /* line list */
+        case GL_LINE_LIST:
+        case GL_LINE_STRIP:    /* line list */
             for (int i = 1; i < n_pts; i++) {
                 /* draw_ln(rast, tmp_p, tmp_p + i * n_attr_out); */
             }
             break;
 
-        case SR_TRIANGLE_LIST:
-        case SR_TRIANGLE_STRIP:    /* triangle fan */
+        case GL_TRIANGLE_LIST:
+        case GL_TRIANGLE_STRIP:    /* triangle fan */
             {
                 float *v0 = pts;
                 float *v1 = pts + 1 * rast->n_attr;
@@ -84,20 +79,20 @@ draw_prim(
 /* fills relevant traversal data about a primitive type */
 
 static void
-split_prim(enum sr_primitive prim_type, int* prim_size)
+split_prim(enum gl_primitive prim_type, int* prim_size)
 {
     switch (prim_type) {
-        case SR_POINT_LIST:
+        case GL_POINT_LIST:
             *prim_size = 1;
             break;
 
-        case SR_LINE_LIST:
-        case SR_LINE_STRIP:
+        case GL_LINE_LIST:
+        case GL_LINE_STRIP:
             *prim_size = 2;
             break;
             
-        case SR_TRIANGLE_LIST:
-        case SR_TRIANGLE_STRIP:
+        case GL_TRIANGLE_LIST:
+        case GL_TRIANGLE_STRIP:
             *prim_size = 3;
             break;
     }
@@ -110,7 +105,7 @@ split_prim(enum sr_primitive prim_type, int* prim_size)
 /* moves coordinates from clip space to screen space */
 
 static void
-screen_space(struct sr_framebuffer* fbuf, float* pt)
+screen_space(struct gl_framebuffer* fbuf, float* pt)
 {
     /* to ndc space */
 
@@ -132,7 +127,7 @@ screen_space(struct sr_framebuffer* fbuf, float* pt)
  ***************************************************************/
 
 /*************
- * sr_render *
+ * gl_render *
  *************/
 
 /**
@@ -141,17 +136,17 @@ screen_space(struct sr_framebuffer* fbuf, float* pt)
  */
 
 void
-sr_render(
-    struct sr_pipeline *pipe,
+gl_render(
+    struct gl_pipeline *pipe,
     int *indices, 
     int n_indices,
-    enum sr_primitive prim_type)
+    enum gl_primitive prim_type)
 {
     /* setup variables */
     
     struct raster rast = {
         .fbuf    = pipe->fbuf, 
-        .uniform = pipe->uniform, 
+        .uniform = pipe->uniform,
         .fs      = pipe->fs, 
         .n_attr  = pipe->n_attr_out,
         .winding = pipe->winding
@@ -160,7 +155,7 @@ sr_render(
     int prim_size, n_prims;
 
     float *pts_out;
-    float tmp[16 * SR_MAX_ATTRIBUTE_COUNT]; /* holds current face */;
+    float tmp[16 * GL_MAX_ATTRIBUTE_COUNT]; /* holds current face */;
     uint8_t *clip_flags;
 
     prim_size = 0;

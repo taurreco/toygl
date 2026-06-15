@@ -1,3 +1,8 @@
+#ifndef RAST_H
+#define RAST_H
+
+#include "gl.h"
+
 /***************
  * struct edge *
  ***************/
@@ -24,8 +29,8 @@ struct bbox {
 };
 
 struct raster {
-    struct sr_framebuffer *fbuf;
-    void* uniform;
+    struct gl_framebuffer *fbuf;
+    void *uniform;
     fs_f fs;
     int n_attr;
     int winding;
@@ -34,3 +39,5 @@ struct raster {
 void draw_pt(struct raster *rast, float *pt);
 void draw_ln(struct raster *rast, float *v0, float *v1);
 void draw_tr(struct raster *rast, float *v0, float *v1, float *v2);
+
+#endif    /* RAST_H */

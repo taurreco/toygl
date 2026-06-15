@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include "driver.h"
 #include <stdlib.h>
-#include "sr.h"
+#include "gl.h"
 
 /**
  * bunny.c
@@ -12,7 +12,7 @@
  * 
  */
 
-struct sr_obj* obj;
+struct gl_obj* obj;
 
 /*********
  * start *
@@ -43,42 +43,42 @@ start()
 
     /* light bindings */
 
-    sr_glight(SR_AMBIENT, &ka);
-    sr_glight(SR_DIFFUSE, &kd);
-    sr_glight(SR_SPECULAR, &ks);
+    gl_glight(GL_AMBIENT, &ka);
+    gl_glight(GL_DIFFUSE, &kd);
+    gl_glight(GL_SPECULAR, &ks);
 
-    sr_light_type(SR_LIGHT_1, SR_DIRECTIONAL);
-    sr_light(SR_LIGHT_1, SR_DIRECTION, light_dir);
-    sr_light(SR_LIGHT_1, SR_COLOR, light_color);
-    sr_light(SR_LIGHT_1, SR_CONSTANT_ATTENUATION, &light_attn_const);
-    sr_light(SR_LIGHT_1, SR_LINEAR_ATTENUATION, &light_attn_lin);
-    sr_light(SR_LIGHT_1, SR_QUADRATIC_ATTENUATION, &light_attn_quad);
-    sr_light_enable(SR_LIGHT_1);
+    gl_light_type(GL_LIGHT_1, GL_DIRECTIONAL);
+    gl_light(GL_LIGHT_1, GL_DIRECTION, light_dir);
+    gl_light(GL_LIGHT_1, GL_COLOR, light_color);
+    gl_light(GL_LIGHT_1, GL_CONSTANT_ATTENUATION, &light_attn_const);
+    gl_light(GL_LIGHT_1, GL_LINEAR_ATTENUATION, &light_attn_lin);
+    gl_light(GL_LIGHT_1, GL_QUADRATIC_ATTENUATION, &light_attn_quad);
+    gl_light_enable(GL_LIGHT_1);
 
 
     /* material bindings */
 
-    sr_material(SR_AMBIENT, material_ambient);
-    sr_material(SR_DIFFUSE, material_diffuse);
-    sr_material(SR_SPECULAR, material_specular);
-    sr_material(SR_SHININESS, &material_shininess);
+    gl_material(GL_AMBIENT, material_ambient);
+    gl_material(GL_DIFFUSE, material_diffuse);
+    gl_material(GL_SPECULAR, material_specular);
+    gl_material(GL_SHININESS, &material_shininess);
 
     /* load model and texture into RAM */
 
-    obj = sr_load_obj("./assets/bunny.obj");
+    obj = gl_load_obj("./examples/assets/bunny.obj");
 
     /* prepare gl context */
 
-    sr_bind_pts(obj->pts, obj->n_pts, obj->n_attr);
-    sr_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
-    sr_bind_std_vs();
-    sr_bind_phong_fs();
-    sr_matrix_mode(SR_PROJECTION_MATRIX);
-    sr_perspective(1, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 2, 1000);
-    sr_matrix_mode(SR_VIEW_MATRIX);
-    sr_look_at(0, 1, 3, 0, 0, 0, 0, 1, 0);
-    sr_matrix_mode(SR_MODEL_MATRIX);
-    sr_scale(0.3, 0.3, 0.3);
+    gl_bind_vertices(obj->pts, obj->n_pts, obj->n_attr);
+    gl_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
+    gl_bind_std_vs();
+    gl_bind_phong_fs();
+    gl_matrix_mode(GL_PROJECTION_MATRIX);
+    gl_perspective(1, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 2, 1000);
+    gl_matrix_mode(GL_VIEW_MATRIX);
+    gl_look_at(0, 1, 3, 0, 0, 0, 0, 1, 0);
+    gl_matrix_mode(GL_MODEL_MATRIX);
+    gl_scale(0.3, 0.3, 0.3);
 }
 
 /***************************************************************
@@ -96,8 +96,8 @@ start()
 extern void
 update(float dt)
 {
-    sr_renderl(obj->indices, obj->n_indices, SR_TRIANGLE_LIST);
-    sr_rotate_y(dt);
+    gl_renderl(obj->indices, obj->n_indices, GL_TRIANGLE_LIST);
+    gl_rotate_y(dt);
 }
 
 /***************************************************************
@@ -115,5 +115,5 @@ update(float dt)
 extern void
 end()
 {
-    sr_obj_free(obj);
+    gl_destroy_obj(obj);
 }

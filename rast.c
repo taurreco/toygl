@@ -1,15 +1,10 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
-#include "sr_priv.h"
-
-/**
- * sr_rast.c
- * --------
- * rasterizes triangles, lines, and points
- * 
- */
+#include "gl.h"
+#include "rast.h"
 
 /***************************************************************
  *                                                             *
@@ -109,7 +104,7 @@ bbox_init(struct bbox *bbox, float *v0, float *v1, float *v2)
 /* render point to framebuffer */
 
 void 
-draw_pt(struct raster_context *rast, float *pt)
+draw_pt(struct raster *rast, float *pt)
 {
     uint32_t color = 0; /* color dest */
     rast->fs(&color, pt, rast->uniform);  /* fragment shader */
@@ -128,7 +123,7 @@ draw_pt(struct raster_context *rast, float *pt)
 /* rasterize a triangle to framebuffer */
 
 void 
-draw_tr(struct raster_context *rast, float *v0, float *v1, float *v2)
+draw_tr(struct raster *rast, float *v0, float *v1, float *v2)
 {   
     /* find bounding box */
 
@@ -137,7 +132,7 @@ draw_tr(struct raster_context *rast, float *v0, float *v1, float *v2)
 
     /* store current point */
 
-    float pt[SR_MAX_ATTRIBUTE_COUNT];
+    float pt[GL_MAX_ATTRIBUTE_COUNT];
     pt[0] = bbox.min_x;
     pt[1] = bbox.min_y;
 

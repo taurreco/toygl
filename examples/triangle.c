@@ -22,7 +22,7 @@ int indices[3] = {0, 1, 2};
 
 /***************************************************************
  *                                                             *
- *                        vertex shader                        *
+ *                           shaders                           *
  *                                                             *
  ***************************************************************/
 
@@ -39,12 +39,6 @@ vs(float* out, float* in, void* uniform)
     memcpy(out, tmp, 4 * sizeof(float));         /* position */
     memcpy(out + 4, in + 3, 3 * sizeof(float));  /* colors */
 }
-
-/***************************************************************
- *                                                             *
- *                      fragment shader                        *
- *                                                             *
- ***************************************************************/
 
 /******
  * fs *
@@ -77,10 +71,10 @@ fs(uint32_t* out, float* in, void* uniform)
 extern void
 start()  
 {
-    gl_bind_pts(pts, 3, 6);
+    gl_bind_vertices(pts, 3, 6);
     gl_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
-    gl_bind_vs(vs, 7);
-    gl_bind_fs(fs);
+    gl_bind_custom_vs(vs, 7);
+    gl_bind_custom_fs(fs);
 }
 
 /***************************************************************
@@ -98,7 +92,7 @@ start()
 extern void
 update(float dt)
 {
-    gl_renderl(indices, 3, SR_TRIANGLE_LIST);
+    gl_renderl(indices, 3, GL_TRIANGLE_LIST);
 }
 
 /***************************************************************

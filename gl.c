@@ -1,15 +1,71 @@
 #include <stdlib.h>
+#include <string.h>
+#include <math.h>    /* TODO: remove this dependency */
 
 #include "gl.h"
 #include "mat.h"
-#include "state.h"
+
+/***************************************************************
+ *                                                             *
+ *                     private structures                      *
+ *                                                             *
+ ***************************************************************/
+
+struct texture {
+    uint32_t *colors;
+    int width;
+    int height;
+};
+
+struct material {
+    struct texture texture;
+    float ambient[4];
+    float diffuse[4];
+    float specular[4];
+    float blend;
+    float shininess;
+};
+
+struct uniform {
+    struct mat4 *model;
+    struct mat4 *normal;
+    struct mat4 *mvp;
+    float cam_pos[3];
+    int has_texture;
+    struct material *material;
+    struct texture *texture;
+    uint8_t light_state;
+    struct light *lights;
+    float ka;
+    float kd;
+    float ks;
+};
+
+struct light {
+    enum gl_light_type type;
+    float pos[3];
+    float color[4];
+    float dir[3];
+    float spot_angle;
+    float spot_penumbra;
+    float attn_const;
+    float attn_lin;
+    float attn_quad;
+};
+
+/***************************************************************
+ *                                                             *
+ *                      global variables                       *
+ *                                                             *
+ ***************************************************************/
+
 
 /* identity matrix */
 static const struct mat4 identity = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
 /* model matrix */
@@ -17,15 +73,15 @@ static struct mat4 model = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
 /* normal transform matrix */
-static struct mat4 normal_transform = {
+static struct mat4 normal = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
 /* camera view matrix */
@@ -33,7 +89,7 @@ static struct mat4 view = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
 /* projection matrix */
@@ -41,7 +97,7 @@ static struct mat4 proj = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
 /* model view projection matrix */
@@ -49,33 +105,31 @@ static struct mat4 mvp = {
     1, 0, 0, 0,
     0, 1, 0, 0,
     0, 0, 1, 0,
-    0, 0, 0, 1
+    0, 0, 0, 1,
 };
 
-static struct light g_lights[gl_MAX_LIGHT_COUNT];
-
+static struct light g_lights[GL_MAX_LIGHT_COUNT];
 static struct material g_material;
+static struct mat4 *cur_mat;
 
-static struct mat4* cur_mat;  /* points to whichever matrix stack is being used */
-
-static struct gl_texture g_texture = {
-    .colors = 0,
+static struct texture g_texture = {
+    .colors = NULL,
     .width  = 0,
-    .height = 0
+    .height = 0,
 };
 
 /* framebuffer */
 static struct gl_framebuffer g_fbuf = {
+    .colors = NULL,
+    .depths = NULL,
     .width  = 0,
     .height = 0,
-    .colors = 0,
-    .depths = 0
 };
 
 /* uniform */
-static struct gl_uniform g_uniform = {
+static struct uniform g_uniform = {
     .model            = &model,
-    .normal_transform = &normal_transform,
+    .normal           = &normal,
     .mvp              = &mvp,
     .has_texture      = 0,
     .material         = &g_material,
@@ -83,7 +137,7 @@ static struct gl_uniform g_uniform = {
     .lights           = g_lights,
     .ka               = 1,
     .kd               = 1,
-    .ks               = 1
+    .ks               = 1,
 };
 
 /* pipeline state */
@@ -96,7 +150,7 @@ static struct gl_pipeline g_pipe = {
     .n_pts            = 0,
     .n_attr_in        = 0,
     .n_attr_out       = 0,
-    .winding          = gl_WINDING_ORDER_CCW
+    .winding          = GL_WINDING_ORDER_CCW,
 };
 
 /***************************************************************
@@ -120,10 +174,10 @@ gl_renderl(int *indices, int n_indices, enum gl_primitive prim_type)
     matmul(&mvp, &model);
 
     /* create normal transform matrix */
-    normal_transform = model;
-    upper_3x3(&normal_transform);
-    transpose(&normal_transform);
-    invert(&normal_transform);
+    normal = model;
+    upper_3x3(&normal);
+    transpose(&normal);
+    invert(&normal);
 
     /* camera position */
     float origin[4] = {0, 0, 0, 1};
@@ -149,7 +203,7 @@ gl_renderl(int *indices, int n_indices, enum gl_primitive prim_type)
 
 /* sets points */
 extern void
-gl_bind_pts(float *pts, int n_pts, int n_attr)
+gl_bind_vertices(float *pts, int n_pts, int n_attr)
 {
     g_pipe.pts_in    = pts;
     g_pipe.n_pts     = n_pts;
@@ -193,24 +247,24 @@ gl_restore_uniform()
 }
 
 /**************
- * gl_bind_vs *
+ * gl_bind_custom_vs *
  **************/
 
 /* sets the vertex shader */
 extern void
-gl_bind_vs(vs_f vs, int n_attr_out)
+gl_bind_custom_vs(vs_f vs, int n_attr_out)
 {
     g_pipe.vs = vs;
     g_pipe.n_attr_out = n_attr_out;
 }
 
 /**************
- * gl_bind_fs *
+ * gl_bind_custom_fs *
  **************/
 
 /* sets the fragment shader */
 extern void
-gl_bind_fs(fs_f fs)
+gl_bind_custom_fs(fs_f fs)
 {
     g_pipe.fs = fs;
 }
@@ -235,39 +289,51 @@ gl_bind_texture(uint32_t *colors, int width, int height)
  *                                                             *
  ***************************************************************/
 
+/***************
+ * split_light *
+ ***************/
+
+/* TODO: bounds check and add error handling */
+
+static int
+split_light(enum gl_light_slot slot)
+{
+    return (int)slot;
+} 
+
 /************
- * gl_light *
+ * gl_light_slot *
  ************/
 
 /* binds a light to pipeline */
 
 extern void 
-gl_light(enum gl_light slot, enum gl_light_attr attr, float *data)
+gl_light(enum gl_light_slot slot, enum gl_light_attr attr, float *data)
 {
     /* split attribute data */
     switch(attr) {
-        case gl_POSITION:
+        case GL_POSITION:
             memcpy(g_lights[slot].pos, data, 3 * sizeof(float));
             break;
-        case gl_DIRECTION:
+        case GL_DIRECTION:
             memcpy(g_lights[slot].dir, data, 3 * sizeof(float));
             break;
-        case gl_COLOR:
+        case GL_COLOR:
             memcpy(g_lights[slot].color, data, 4 * sizeof(float));
             break;
-        case gl_SPOT_ANGLE:
+        case GL_SPOT_ANGLE:
             g_lights[slot].spot_angle = *data;
             break;
-        case gl_SPOT_PENUMBRA:
+        case GL_SPOT_PENUMBRA:
             g_lights[slot].spot_penumbra = *data;
             break;
-        case gl_CONSTANT_ATTENUATION:
+        case GL_CONSTANT_ATTENUATION:
             g_lights[slot].attn_const = *data;
             break;
-        case gl_LINEAR_ATTENUATION:
+        case GL_LINEAR_ATTENUATION:
             g_lights[slot].attn_lin = *data;
             break;
-        case gl_QUADRATIC_ATTENUATION:
+        case GL_QUADRATIC_ATTENUATION:
             g_lights[slot].attn_quad = *data;
             break;
         default:
@@ -285,13 +351,13 @@ gl_glight(enum gl_light_attr attr, float *data)
 {
     /* split attribute data */
     switch(attr) {
-        case gl_AMBIENT:
+        case GL_AMBIENT:
             g_uniform.ka = *data;
             break;
-        case gl_DIFFUSE:
+        case GL_DIFFUSE:
             g_uniform.kd = *data;
             break;
-        case gl_SPECULAR:
+        case GL_SPECULAR:
             g_uniform.ks = *data;
             break;
         default:
@@ -306,17 +372,19 @@ gl_glight(enum gl_light_attr attr, float *data)
 /* binds light type to slot */
 
 extern void 
-gl_light_type(enum gl_light slot, enum gl_light_type type)
+gl_light_type(enum gl_light_slot slot, enum gl_light_type type)
 {
-    int idx = split_light(slot);
+    int idx;
+    
+    idx = split_light(slot);
     switch (type) {
-        case gl_DIRECTIONAL:
+        case GL_DIRECTIONAL:
             g_lights[idx].type = 1 << 0;
             break;
-        case gl_POINT:
+        case GL_POINT:
             g_lights[idx].type = 1 << 1;
             break;
-        case gl_SPOT:
+        case GL_SPOT:
             g_lights[idx].type = 1 << 2;
             break;
     }
@@ -329,7 +397,7 @@ gl_light_type(enum gl_light slot, enum gl_light_type type)
 /* enables light at specified slot */
 
 extern void 
-gl_light_enable(enum gl_light slot)
+gl_light_enable(enum gl_light_slot slot)
 {
     g_uniform.light_state |= 1 << slot;
 }
@@ -340,7 +408,7 @@ gl_light_enable(enum gl_light slot)
 
 /* disables light at specified slot */
 extern void 
-gl_light_disable(enum gl_light slot)
+gl_light_disable(enum gl_light_slot slot)
 {
     g_uniform.light_state &= ~(1 << slot);
 }
@@ -354,19 +422,19 @@ extern void
 gl_material(enum gl_light_attr attr, float *data)
 {
     switch(attr) {
-        case gl_AMBIENT:
+        case GL_AMBIENT:
             memcpy(g_material.ambient, data, 4 * sizeof(float));
             break;
-       case gl_DIFFUSE:
+       case GL_DIFFUSE:
             memcpy(g_material.diffuse, data, 4 * sizeof(float));
             break;
-        case gl_SPECULAR:
+        case GL_SPECULAR:
             memcpy(g_material.specular, data, 4 * sizeof(float));
             break;
-        case gl_BLEND:
+        case GL_BLEND:
             g_material.blend = *data;
             break;
-        case gl_SHININESS:
+        case GL_SHININESS:
             g_material.shininess = *data;
             break;
         default:
@@ -389,16 +457,16 @@ extern void
 gl_matrix_mode(enum gl_matrix_mode mode)
 {
     switch (mode) {
-        case gl_MODEL_MATRIX:
+        case GL_MODEL_MATRIX:
             cur_mat = &model;
             break;
-        case gl_VIEW_MATRIX:
+        case GL_VIEW_MATRIX:
             cur_mat = &view;
             break;
-        case gl_PROJECTION_MATRIX:
+        case GL_PROJECTION_MATRIX:
             cur_mat = &proj;
             break;
-        case gl_MVP_MATRIX:
+        case GL_MVP_MATRIX:
             cur_mat = &mvp;
             break;
     }
@@ -485,7 +553,7 @@ gl_translate(float x, float y, float z)
         1, 0, 0, x,
         0, 1, 0, y,
         0, 0, 1, z,
-        0, 0, 0, 1
+        0, 0, 0, 1,
     };
 
     matmul(cur_mat, &t);
@@ -506,7 +574,7 @@ gl_rotate_x(float t)
         1,  0,  0,  0,
         0,  c,  -s, 0,
         0,  s,  c,  0,
-        0,  0,  0,  1
+        0,  0,  0,  1,
     };
 
     matmul(cur_mat, &x);
@@ -528,7 +596,7 @@ gl_rotate_y(float t)
         c,  0,  s,  0,
         0,  1,  0,  0,
         -s, 0,  c,  0,
-        0,  0,  0,  1
+        0,  0,  0,  1,
     };
 
     matmul(cur_mat, &y);
@@ -550,7 +618,7 @@ gl_rotate_z(float t)
         c,  -s, 0,  0,
         s,  c,  0,  0,
         0,  0,  1,  0,
-        0,  0,  0,  1
+        0,  0,  0,  1,
     };
 
     matmul(cur_mat, &z);
@@ -568,7 +636,7 @@ gl_scale(float sx, float sy, float sz)
         sx, 0,  0,  0,
         0,  sy, 0,  0,
         0,  0,  sz, 0,
-        0,  0,  0,  1
+        0,  0,  0,  1,
     };
 
     matmul(cur_mat, &s);
@@ -598,17 +666,17 @@ gl_look_at(float ex, float ey, float ez,
 {
     /* eye vector */
     float eye[3] = {
-        ex, ey, ez
+        ex, ey, ez,
     };
 
     /* look vector */
     float look[3] = {
-        lx, ly, lz
+        lx, ly, lz,
     };
 
     /* up vector */
     float up[3] = {
-        ux, uy, uz
+        ux, uy, uz,
     };
 
     /* backward vector, w */
@@ -632,7 +700,7 @@ gl_look_at(float ex, float ey, float ez,
         u[0], u[1], u[2], 0,
         v[0], v[1], v[2], 0,
         w[0], w[1], w[2], 0,
-        0,    0,    0,    1
+        0,    0,    0,    1,
     };
 
     matmul(cur_mat, &m);
@@ -654,16 +722,18 @@ gl_look_at(float ex, float ey, float ez,
 void
 gl_perspective(float fovy, float aspect, float near, float far)
 {
-    float f   = 1                / (tan(fovy / 2));
-    float e22 = (far + near)     / (near - far);
-    float e23 = (2 * far * near) / (near - far);
-    float a   = aspect;
+    float f, e22, e23, a;
+
+    f   = 1                / (tan(fovy / 2));
+    e22 = (far + near)     / (near - far);
+    e23 = (2 * far * near) / (near - far);
+    a   = aspect;
 
     struct mat4 p = {
         f/a, 0,   0,    0,
         0,   f,   0,    0,
         0,   0,   e22,  e23,
-        0,   0,   -1,   0
+        0,   0,   -1,   0,
     };
 
     matmul(cur_mat, &p);
@@ -679,19 +749,472 @@ void
 gl_frustum(float left, float right, float bottom, 
            float top, float near, float far)
 {
-    float e00 = (2 * near)        / (right - left);
-    float e11 = (2 * near)        / (top - bottom);
-    float e02 = (right + left)    / (right - left);
-    float e12 = (top + bottom)    / (top - bottom);
-    float e22 = -(far + near)     / (near - far);
-    float e23 = -(2 * far * near) / (near - far);
+    float e00, e11, e02, e12, e22, e23;
+
+    e00 = (2 * near)        / (right - left);
+    e11 = (2 * near)        / (top - bottom);
+    e02 = (right + left)    / (right - left);
+    e12 = (top + bottom)    / (top - bottom);
+    e22 = -(far + near)     / (near - far);
+    e23 = -(2 * far * near) / (near - far);
 
     struct mat4 p = {
         e00, 0,   e02,  0,
         0,   e11, e12,  0,
         0,   0,   e22,  e23,
-        0,   0,   -1,   0
+        0,   0,   -1,   0,
     };
 
     matmul(cur_mat, &p);
+}
+
+/***************************************************************
+ *                                                             *
+ *                      color & blending                       *
+ *                                                             *
+ ***************************************************************/
+
+/*********
+ * clamp *
+ *********/
+
+/* clamps float value between 0 and 1 */
+
+static float
+clamp(float v)
+{
+    return fmin(fmax(v, 0), 1);
+}
+
+/***********
+ * argb_int *
+ ***********/
+
+/* converts a float representation of a color into an int */
+
+static uint32_t
+rgb_int(float *color)
+{
+    uint8_t a = floorf(clamp(color[0]) * 255);;
+    uint8_t r = floorf(clamp(color[1]) * 255);
+    uint8_t g = floorf(clamp(color[2]) * 255);
+    uint8_t b = floorf(clamp(color[3]) * 255);
+
+    return a << 24 | r << 16 | g << 8 | b << 0; 
+}
+
+/*************
+ * argb_float *
+ *************/
+
+/* converts one int into a float representation of a color */
+
+static void
+rgb_float(float *a, uint32_t b)
+{
+    a[0] = ((b & 0xFF000000) >> 24) / (float)255;
+    a[1] = ((b & 0x00FF0000) >> 16) / (float)255;
+    a[2] = ((b & 0x0000FF00) >> 8)  / (float)255;
+    a[3] = ( b & 0x000000FF)        / (float)255;
+}
+
+/***************************************************************
+ *                                                             *
+ *                        shader helpers                       *
+ *                                                             *
+ ***************************************************************/
+
+/**************
+ * clip_space *
+ **************/
+
+/**
+ * sends the vector 'in' to clip space by applying an mvp 
+ * sets the first four indices of 'out' to these coordinates
+ */
+
+static void
+clip_space(float *out, float *in, struct uniform *uniform)
+{
+    /* homogenize vector */
+    float tmp[4] = { in[0], in[1], in[2], 1 };
+    vec4_matmul(out, uniform->mvp, tmp);
+}
+
+/***************
+ * world_space *
+ ***************/
+
+/**
+ * sends the vector 'in' to world space by applying a model matrix 
+ * sets the first three indices of 'out' to these coordinates
+ */
+
+static void
+world_space(float *out, float *in, struct uniform *uniform)
+{
+    /* homogenize vector */
+    float tmp_in[4] = { in[0], in[1], in[2], 1 };
+    float tmp_out[4];
+    vec4_matmul(tmp_out, uniform->model, tmp_in);
+    memcpy(out, tmp_out, 3 * sizeof(float));
+}
+
+/**********************
+ * world_space_normal *
+ **********************/
+
+/**
+ * sends the normal vector 'in' to world space by applying a normal 
+ * transform the first three indices of 'out' to these coordinates
+ */
+
+static void
+world_space_normal(float *out, float *in, struct uniform *uniform)
+{
+    /* homogenize vector */
+    float tmp_in[4] = { in[0], in[1], in[2], 1 };
+    float tmp_out[4];
+    vec4_matmul(tmp_out, uniform->normal, tmp_in);
+    memcpy(out, tmp_out, 3 * sizeof(float));
+}
+
+/******************
+ * sample_texture *
+ ******************/
+
+/**
+ * sets 'color' to the float triple color of the 
+ * texture at coordinates 'u' and 'v' 
+ */
+
+static void
+sample_texture(struct texture *texture, float *color, float u, float v)
+{
+    int x = floorf(u * texture->width);
+    int y = texture->height - 1 - floorf(v * texture->height);
+    rgb_float(color, texture->colors[y * texture->width + x]);
+}
+
+/***********
+ * falloff *
+ ***********/
+
+static float 
+falloff(float x, float inner, float outer) {
+    return -2 * powf((x - inner) / (outer - inner), 3) + 
+            3 * powf((x - inner) / (outer - inner), 2);
+}
+
+/*********
+ * phong *
+ *********/
+
+/**
+ * given a world position, normal, and light, calculates 
+ * an ambient, diffuse, and specular intensites to blend 
+ * with a base color 
+ */
+
+static void
+phong(
+    float *color,
+    float *pos,
+    float *uv, 
+    float *normal,
+    struct uniform *uniform)
+{
+    float fatt, intensity, dist;
+    float I[4], L[3], R[3], V[3], tmp[4];
+    float *Oa, *Od, *Os;
+    float n, ka, kd, ks;
+
+    memset(color, 0, 4 * sizeof(float));
+    fatt = 1;
+    intensity = 1;
+
+    Oa = uniform->material->ambient;
+    Od = uniform->material->diffuse;
+    Os = uniform->material->specular;
+    n = uniform->material->shininess;
+    ka = uniform->ka;
+    kd = uniform->kd;
+    ks = uniform->ks;
+
+    /* ambient */
+    vec4_scale(tmp, Oa, ka);
+    vec4_add(color, color, tmp);
+
+    for (int i = 0; i < GL_MAX_LIGHT_COUNT; i++) {
+        if (uniform->light_state & (1 << i)) {
+            struct light light = uniform->lights[i];
+
+            memcpy(I, light.color, 4 * sizeof(float));
+
+            /* directional light and spot light */
+            if (0x1 & light.type) 
+                vec3_scale(L, light.dir, -1);
+            
+            /* point light and spot light */
+            if (0x6 & light.type) {
+                vec3_sub(L, light.pos, pos);
+                dist = magnitude(L);
+                fatt = 1 / (light.attn_quad * dist * dist + 
+                            light.attn_lin * dist + 
+                            light.attn_const);
+            }
+
+            /* spot light */
+            if (0x4 & light.type) {
+                vec3_scale(L, light.dir, -1);
+                float light_dir[3];
+                memcpy(light_dir, light.dir, 3 * sizeof(float));
+                vec3_sub(tmp, pos, light.pos);
+                normalize(tmp);
+                normalize(light_dir);
+                float x = acos(dot(light_dir, tmp));
+                float inner = light.spot_angle - light.spot_penumbra;
+                float outer = light.spot_angle;
+                if (x <= inner) {
+                    intensity = 1;
+                } else if (x <= outer) {
+                    intensity = (1 - falloff(x, inner, outer));
+                } else {
+                    intensity = 0;
+                }
+                vec4_scale(I, light.color, intensity);
+            }
+
+            normalize(L);
+
+            /* diffuse color */
+            vec4_scale(tmp, Od, kd);
+            if (uniform->has_texture) {
+                float tex_color[4];
+                sample_texture(uniform->texture, tex_color, uv[0], uv[1]);
+                lerp(tmp, tmp, tex_color, uniform->material->blend);
+            }
+            vec4_scale(tmp, tmp, clamp(dot(normal, L)));
+            vec4_mul(tmp, tmp, I);
+            vec4_scale(tmp, tmp, fatt);
+            vec4_add(color, color, tmp);
+
+            /* specular color */
+            reflect(R, L, normal);
+            vec3_sub(V, uniform->cam_pos, pos);
+            normalize(V);
+            normalize(R);
+            
+            vec4_scale(tmp, Os, powf(clamp(dot(R, V)), n));
+            vec4_scale(tmp, tmp, ks);
+            vec4_mul(tmp, tmp, I);
+            vec4_scale(tmp, tmp, fatt);
+            vec4_add(color, color, tmp);
+        }
+    }
+}
+
+/***************************************************************
+ *                                                             *
+ *                            color                            *
+ *                                                             *
+ ***************************************************************/
+
+/**
+ * in (3):
+ *    float x, y, z;
+ * 
+ * out (7):
+ *    float x, y, z, w;
+ *    float r, g, b;
+ */
+
+/************
+ * color_vs *
+ ************/
+
+/* copies argb coords over from 'in' to 'out' */
+
+static void 
+color_vs(float *out, float *in, void *uniform)
+{
+    clip_space(out, in, uniform);  /* position */
+    memcpy(out + 4, in + 3, 3 * sizeof(float));  /* color */
+}
+
+/************
+ * color_fs *
+ ************/
+
+/* uses argb coords to fit color representation */
+static void
+color_fs(uint32_t *out, float *in, void *uniform)
+{
+    float color[4] = { in[4], in[5], in[6], 1 };
+    *out = rgb_int(color);  /* frag color */
+}
+
+/***************************************************************
+ *                                                             *
+ *                           texture                           *
+ *                                                             *
+ ***************************************************************/
+
+/**
+ * in (5):
+ *    float x, y, z;
+ *    float u, v;
+ * 
+ * out (6):
+ *    float x, y, z, w;
+ *    float u, v;
+ */
+
+/**************
+ * texture_vs *
+ **************/
+
+/* copies argb coords over from 'in' to 'out' */
+
+static void 
+texture_vs(float *out, float *in, void *uniform)
+{
+    clip_space(out, in, uniform);  /* position */
+    memcpy(out + 4, in + 3, 2 * sizeof(float));  /* texture */
+}
+
+/**************
+ * texture_fs *
+ **************/
+
+/* uses argb coords to fit color representation */
+
+static void
+texture_fs(uint32_t *out, float *in, void *uniform)
+{   
+    struct uniform *std_uniform;
+    std_uniform = (struct uniform *)uniform;
+    float color[4];
+    sample_texture(std_uniform->texture, color, in[4], in[5]); 
+    *out = rgb_int(color);  /* frag color */
+}
+
+/***************************************************************
+ *                                                             *
+ *                           phong                             *
+ *                                                             *
+ ***************************************************************/
+
+/**
+ * in (8):
+ *    float x, y, z;
+ *    float u, v;
+ *    float nx, ny, nz;
+ * 
+ * out (12):
+ *    float x, y, z, w;
+ *    float wx, wy, wz;
+ *    float u, v;
+ *    float nx, ny, nz;
+ */
+
+/**********
+ * std_vs *
+ **********/
+
+/* copies argb coords over from 'in' to 'out' */
+
+static void 
+std_vs(float *out, float *in, void *uniform)
+{
+    struct uniform *std_uniform;
+    
+    std_uniform = (struct uniform *)uniform;
+
+    /* x y z w */
+    clip_space(out, in, std_uniform);  /* position */
+
+    /* wx, wy, wz */
+    world_space(out + 4, in, std_uniform);
+
+    /* u v */
+    memcpy(out + 7, in + 3, 2 * sizeof(float));
+
+    /* nx ny nz */
+    world_space_normal(out + 9, in + 5, std_uniform);
+
+    /* normalize them */
+    normalize(out + 9);
+}
+
+/************
+ * phong_fs *
+ ************/
+
+/* blends a phong sample with color base */
+
+static void
+phong_fs(uint32_t *out, float *in, void *uniform)
+{
+    struct uniform *std_uniform;
+    std_uniform = (struct uniform *)uniform;
+
+    float color[4];
+    normalize(in + 9);
+    phong(color, in + 4, in + 7, in + 9, std_uniform);
+    *out = rgb_int(color);
+}
+
+/***************************************************************
+ *                                                             *
+ *                         bindings                            *
+ *                                                             *
+ ***************************************************************/
+
+/*********
+ * color *
+ *********/
+
+void
+gl_bind_color_vs()
+{
+    gl_bind_custom_vs(color_vs, 7);
+}
+
+void
+gl_bind_color_fs()
+{
+    gl_bind_custom_fs(color_fs);
+}
+
+/***********
+ * texture *
+ ***********/
+
+void
+gl_bind_texture_vs()
+{
+    gl_bind_custom_vs(texture_vs, 6);
+}
+
+void
+gl_bind_texture_fs()
+{
+    gl_bind_custom_fs(texture_fs);
+}
+
+/*********
+ * phong *
+ *********/
+
+void
+gl_bind_std_vs()
+{
+    gl_bind_custom_vs(std_vs, 12);
+}
+
+void
+gl_bind_phong_fs()
+{
+    gl_bind_custom_fs(phong_fs);
 }

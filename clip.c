@@ -2,16 +2,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "sr.h"
+#include "gl.h"
 #include "clip.h"
-
-/**
- * sr_clip.c
- * --------
- * defines functions to clip a polygon of vectors (x, y, z, w) in
- * homogeneous space
- * 
- */
 
 /***************************************************************
  *                                                             *
@@ -120,33 +112,33 @@ clip_poly(
     int n_attr,
     uint8_t clip_flags)
 {
-    float dest[16 * SR_MAX_ATTRIBUTE_COUNT];
-    float tmp[16 * SR_MAX_ATTRIBUTE_COUNT];
+    float dest[16 * GL_MAX_ATTRIBUTE_COUNT];
+    float tmp[16 * GL_MAX_ATTRIBUTE_COUNT];
     memcpy(tmp, src, *n_pts * n_attr * sizeof(float));
     float *tmp_src = (float*)tmp;
     float *tmp_dest = (float*)dest;
 
-    if (clip_flags & SR_CLIP_LEFT_PLANE) {        /* left */
+    if (clip_flags & GL_CLIP_LEFT_PLANE) {        /* left */
         clip_routine(tmp_dest, tmp_src, n_pts, n_attr, 0, -1);
         swap(&tmp_src, &tmp_dest);
     }
 
-    if (clip_flags & (SR_CLIP_BOTTOM_PLANE)) {    /* bottom */
+    if (clip_flags & (GL_CLIP_BOTTOM_PLANE)) {    /* bottom */
          clip_routine(tmp_dest, tmp_src, n_pts, n_attr, 1, -1);
         swap(&tmp_src, &tmp_dest);
     }
 
-    if (clip_flags & SR_CLIP_NEAR_PLANE) {        /* near */
+    if (clip_flags & GL_CLIP_NEAR_PLANE) {        /* near */
         clip_routine(tmp_dest, tmp_src, n_pts, n_attr, 2, -1);
         swap(&tmp_src, &tmp_dest);
     }
 
-    if (clip_flags & SR_CLIP_RIGHT_PLANE) {       /* right */
+    if (clip_flags & GL_CLIP_RIGHT_PLANE) {       /* right */
         clip_routine(tmp_dest, tmp_src, n_pts, n_attr, 0, 1);
         swap(&tmp_src, &tmp_dest);
     }
 
-    if (clip_flags & SR_CLIP_TOP_PLANE) {         /* top */
+    if (clip_flags & GL_CLIP_TOP_PLANE) {         /* top */
         clip_routine(tmp_dest, tmp_src, n_pts, n_attr, 1, 1);
         swap(&tmp_src, &tmp_dest);
     }
