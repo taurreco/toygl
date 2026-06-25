@@ -1,22 +1,19 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #include "gl.h"
 
-/**
- * gl_tga.c
- * --------
- * loads tga images into memory
- * supports data types 1, 2, 9, & 10
- * and pixel / color depths of 16, 24, & 32
- * 
- */
+#define MAPPED          1
+#define RGB             2
+#define RLE_MAPPED      9
+#define RLE_RGB         10
 
-/*********************************************************************
- *                                                                   *
- *                              structs                              *
- *                                                                   *
- *********************************************************************/
+/**************************************************************
+ *                                                            *
+ *                     struct definitions                     *
+ *                                                            *
+ **************************************************************/
 
 /**********
  * header *
@@ -37,12 +34,6 @@ struct header {
    int16_t img_h;
    uint8_t img_depth;
    uint8_t img_desc;
-};
-
-struct tga {
-   struct header header;
-   uint8_t *color_map;
-   uint8_t *image_data;
 };
 
 /**************************************************************
@@ -76,12 +67,12 @@ u16(uint16_t *dst, FILE *fp)
  **********/
 
 /* 
- * takes in a varying representation of color in 'data'
- * and converts to the standard color struct
+ * takes in a varying representation of color in 'bytes'
+ * and converts to the standard 4 byte argb color struct
  */
 
 static uint32_t
-unpack(uint8_t *bytes, int n_bytes)
+unpack(uint8_t *bytes, int stride)
 {
     uint8_t a, r, g, b;
 
@@ -90,7 +81,7 @@ unpack(uint8_t *bytes, int n_bytes)
     g = 0;
     b = 0;
 
-    if (n_bytes == 2) {
+    if (stride == 2) {
         
 	    /* grab 5-bit representation of each color */
          
@@ -109,14 +100,14 @@ unpack(uint8_t *bytes, int n_bytes)
 	    a = 255 * ((bytes[0] & 0x80) >> 7);
     }
 
-    if (n_bytes == 3) {   
+    if (stride == 3) {   
         a = 255;
         r = bytes[2];
         g = bytes[1];
         b = bytes[0];
     }
         
-    if (n_bytes == 4) {        
+    if (stride == 4) {        
         a = bytes[3];
         r = bytes[2];
         g = bytes[1];
@@ -126,28 +117,46 @@ unpack(uint8_t *bytes, int n_bytes)
    return a << 24 | r << 16 | g << 8 | b;
 }
 
+/**********
+ * mapped *
+ **********/
+
 static void
-mapped(uint32_t *colors, struct tga tga)
+mapped(uint32_t *data, struct header ihdr, uint8_t *cmap, uint8_t *img)
 {
-    int color_depth = tga.header.cmap_depth / 8;
-    uint8_t *color_tga;    /* raw color bytes read from tga */
-    for (int i = 0; i < tga.header.img_w * tga.header.img_h; i++) {
-        color_tga = tga.color_map + tga.image_data[i] * color_depth;
-        colors[i] = unpack(color_tga, color_depth);
+    int width, height;
+    int stride;
+    
+    width = ihdr.img_w;
+    height = ihdr.img_h;
+    stride = ihdr.cmap_depth >> 3;
+
+    for (int i = 0; i < width * height; i++) {
+        uint8_t *color;
+        color = cmap + img[i] * stride;
+        data[i] = unpack(color, stride);
     }
 }
 
-static void
-rgb(uint32_t *colors, struct tga tga)
-{
-    int pixel_depth = tga.header.img_depth / 8;
-    int color_depth = tga.header.cmap_depth / 8;
-    uint8_t *color_tga;    /* raw color bytes read from tga */
+/*******
+ * rgb *
+ *******/
 
-    color_tga = tga.image_data;
-    for (int i = 0; i < tga.header.img_w * tga.header.img_h; i++) {
-        colors[i] = unpack(color_tga, pixel_depth);
-        color_tga += pixel_depth;
+static void
+rgb(uint32_t *data, struct header ihdr, uint8_t *img)
+{
+    uint8_t *color;
+    int width, height;
+    int stride;
+
+    color = img;
+    width = ihdr.img_w;
+    height = ihdr.img_h;
+    stride = ihdr.img_depth >> 3;
+    
+    for (int i = 0; i < width * height; i++) {
+        data[i] = unpack(color, stride);
+        color += stride;
     }
 }
 
@@ -156,93 +165,83 @@ rgb(uint32_t *colors, struct tga tga)
  *******/
 
 static void
-rle(uint32_t *colors, struct tga tga)
+rle(uint32_t *data, struct header ihdr, uint8_t *cmap, uint8_t *img)
 {
-    uint8_t* packet;
-    packet = tga.image_data;
-    int pixel_depth = tga.header.img_depth / 8;
-    int color_depth = tga.header.cmap_depth / 8;
+    uint8_t *packet;
+    int width, height;
+    int stride, img_stride, cmap_stride;
+    
+    packet = img;
 
+    width = ihdr.img_w;
+    height = ihdr.img_h;
 
-    for (int i = 0; i < tga.header.img_w * tga.header.img_h; i++) {
+    img_stride = ihdr.img_depth >> 3;
+    cmap_stride = ihdr.cmap_depth >> 3;
+    stride = ihdr.cmap_type ? cmap_stride : img_stride;
+    
+    for (int i = 0; i < width * height; i++) {
 
-        int len = (*packet & 0x7F) + 1;
+        uint8_t *color;
+        int len;
 
-        int depth = tga.header.cmap_type ? color_depth : pixel_depth;
-        uint8_t* color_addr = tga.header.cmap_type ? tga.color_map + packet[1] : packet + 1;
+        len = (*packet & 0x7F) + 1;
+        color = ihdr.cmap_type ? cmap + packet[1] : packet + 1;
 
         if (*packet & 0x80) {    /* run length packet */
 
-            uint32_t color = unpack(color_addr, depth);
             for (int j = 0; j < len; j++) {
-                colors[i + j] = color;
+                data[i + j] = unpack(color, stride);;
             }
 
             /* next packet */
-            packet += pixel_depth + 1;  
+            packet += img_stride + 1;  
         } else {                /* raw packet */
 
             for (int j = 0; j < len; j++) {
-                colors[i + j] = unpack(color_addr, depth);
-                color_addr += pixel_depth;
+                data[i + j] = unpack(color, stride);
+                color += img_stride;
             }
 
             /* next packet */
-            packet += len * pixel_depth + 1;  
+            packet += len * img_stride + 1;  
         }
 
         i += len - 1;
     }
 }
 
-/********
- * read *
- ********/
+/*********
+ * parse *
+ *********/
 
-/* 
- * reads tga data into RAM for quick parsing,
- * allocates image and color tga on the heap
- */
 static void
-read(struct tga* tga, FILE* fp)
+parse(uint32_t *data, struct header ihdr, uint8_t *cmap, uint8_t *img)
 {
-   int n = 0;  // used to supress fread warnings :(
-   /* fill header */
-   n += fread(&tga->header.idlen, 1, 1, fp);
-   n += fread(&tga->header.cmap_type, 1, 1, fp);
-   n += fread(&tga->header.img_type, 1, 1, fp);
-   n += fread(&tga->header.cmap_start, 1, 2, fp);
-   n += fread(&tga->header.cmap_len, 1, 2, fp);
-   n += fread(&tga->header.cmap_depth, 1, 1, fp);
-   n += fread(&tga->header.img_x, 1, 2, fp);
-   n += fread(&tga->header.img_y, 1, 2, fp);
-   n += fread(&tga->header.img_w, 1, 2, fp);
-   n += fread(&tga->header.img_h, 1, 2, fp);
-   n += fread(&tga->header.img_depth, 1, 1, fp);
-   n += fread(&tga->header.img_desc, 1, 1, fp);
+    switch (ihdr.img_type) {
+        case MAPPED:    /* uncompressed color mapped */
+            mapped(data, ihdr, cmap, img);
+            break;
 
-   int pixel_depth = tga->header.img_depth / 8;
-   int color_depth = tga->header.cmap_depth / 8;
-   
-   tga->color_map = calloc(tga->header.cmap_len * color_depth, 1);
-   tga->image_data = calloc(tga->header.img_w * 
-                                tga->header.img_h * 
-                                pixel_depth, 1);
+        case RGB:    /* uncompressed RGB */
+            rgb(data, ihdr, img);
+            break;
 
-   fseek(fp, tga->header.idlen, SEEK_CUR);
-   n += fread(tga->color_map, 1, tga->header.cmap_len * color_depth, fp);
-   n += fread(tga->image_data, 1, 
-         tga->header.img_w * 
-         tga->header.img_h * 
-         pixel_depth, 
-         fp);
+        case RLE_MAPPED:    /* run length encoded & color mapped */
+        case RLE_RGB:     /* run length encoded RGB */
+            rle(data, ihdr, cmap, img);
+            break;
+
+        default:
+            printf("unsupported tga data type code");
+    }
 }
 
-/*********************************************************************
- *                                                                   *
- *                         public definition                         *
- *                                                                   *
- *********************************************************************/
+/**************************************************************
+ *                                                            *
+ *                    public definitions                      *
+ *                                                            *
+ **************************************************************/
 
 /***************
  * gl_load_tga *
@@ -253,53 +252,70 @@ read(struct tga* tga, FILE* fp)
  * and sets it to the given pointer
  * 1 on success, 0 on failure
  */
+
 int
-gl_load_tga(char* file, uint32_t **colors_out, int *width_out, int *height_out)
+gl_load_tga(
+    char *path,
+    uint32_t **data_out,
+    int *width_out,
+    int *height_out)
 {
-   struct tga tga;
+    FILE *fp;
+    uint32_t *data;
+    uint8_t *cmap, *img;
+    struct header ihdr;
+    int width, height;
+    int cmap_stride, img_stride;
 
-   /* open file */
-   FILE* fp = fopen(file, "rb");
-   if (!fp)
-      return 0;
+    fp = fopen(path, "rb");
 
-   read(&tga, fp);
-   fclose(fp);
+    /* fill header */
 
-   int pixel_depth = tga.header.img_depth / 8;
-   int color_depth = tga.header.cmap_depth / 8;
-   uint8_t* color_tga;    /* raw color bytes read from tga */
-   uint8_t* packet;
+    u8(&ihdr.idlen, fp);
+    u8(&ihdr.cmap_type, fp);
+    u8(&ihdr.img_type, fp);
+    u16(&ihdr.cmap_start, fp);
+    u16(&ihdr.cmap_len, fp);
+    u8(&ihdr.cmap_depth, fp);
+    u16(&ihdr.img_x, fp);
+    u16(&ihdr.img_y, fp);
+    u16(&ihdr.img_w, fp);
+    u16(&ihdr.img_h, fp);
+    u8(&ihdr.img_depth, fp);
+    u8(&ihdr.img_desc, fp);
 
-   uint32_t* colors = calloc(tga.header.img_w * tga.header.img_h, 4);
+    width = ihdr.img_w;
+    height = ihdr.img_h;
+
+    /* depth is bits per pixel, stride is bytes per pixel */
+
+    cmap_stride = ihdr.cmap_depth >> 3;
+    img_stride = ihdr.img_depth >> 3;
+
+    /* fill color map and image data */
+
+    cmap = calloc(ihdr.cmap_len * cmap_stride, 1);
+    img = calloc(width * height * img_stride, 1);
+
+    fseek(fp, ihdr.idlen, SEEK_CUR);
+    fread(cmap, ihdr.cmap_len * cmap_stride, 1, fp);
+    fread(img, width * height * img_stride, 1, fp);
    
+    fclose(fp);
 
-   switch (tga.header.img_type) {
-        case 1:    /* uncompressed color mapped */
-            mapped(colors, tga);
-            break;
+    /* fill contents of the image */
 
-        case 2:    /* uncompressed RGB */
-            rgb(colors, tga);
-            break;
+    data = calloc(width * height, 4);
+    parse(data, ihdr, cmap, img);
 
-        case 9:    /* run length encoded & color mapped */
-        case 10:   /* run length encoded RGB */
-            rle(colors, tga);
-            break;
+    /* return */
 
-        default:
-            printf("unsupported tga data type code");
-            free(colors);
-            return 0;
-   }
+    *data_out = data;
+    *width_out = width;
+    *height_out = height;
 
-   /* return */
-   *colors_out = colors;
-   *width_out = tga.header.img_w;
-   *height_out= tga.header.img_h;
-   free(tga.color_map);
-   free(tga.image_data);
+    free(cmap);
+    free(img);
 
-   return 0;
+    return 0;
 }

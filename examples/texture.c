@@ -28,8 +28,8 @@ start()
     float light_attn_quad = 0.2;
 
     float material_ambient[4] = {1, 0.5, 0, 0};
-    float material_diffuse[4] = {1, 1, 1, 1};
-    float material_specular[4] = {1, 1, 1, 1};
+    float material_diffuse[4] = {0, 1, 1, 1};
+    float material_specular[4] = {0, 1, 1, 1};
     float material_blend = 1;
     float material_shininess = 50;
 
@@ -76,7 +76,7 @@ start()
 
     gl_bind_framebuffer(SCREEN_WIDTH, SCREEN_HEIGHT, colors, depths);
     gl_bind_std_vs();
-    gl_bind_phong_fs();
+    gl_bind_phong_fs();  /* TODO: removing this causes segfault */
 
     gl_matrix_mode(GL_PROJECTION_MATRIX);
     gl_perspective(1, (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 2, 1000);
