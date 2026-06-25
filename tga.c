@@ -219,16 +219,16 @@ static void
 parse(uint32_t *data, struct header ihdr, uint8_t *cmap, uint8_t *img)
 {
     switch (ihdr.img_type) {
-        case MAPPED:    /* uncompressed color mapped */
+        case MAPPED:        /* uncompressed color mapped */
             mapped(data, ihdr, cmap, img);
             break;
 
-        case RGB:    /* uncompressed RGB */
+        case RGB:           /* uncompressed RGB */
             rgb(data, ihdr, img);
             break;
 
         case RLE_MAPPED:    /* run length encoded & color mapped */
-        case RLE_RGB:     /* run length encoded RGB */
+        case RLE_RGB:       /* run length encoded RGB */
             rle(data, ihdr, cmap, img);
             break;
 
