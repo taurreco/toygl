@@ -6,9 +6,9 @@ build/include/gl.h: include/gl.h
 	mkdir -p build/include
 	cp include/gl.h build/include/gl.h
 
-build/lib/libgl.so: clip.c gl.c mat.c obj.c pipe.c rast.c tga.c
+build/lib/libgl.so: clip.c gl.c map.c mat.c obj.c pipe.c rast.c tga.c
 	mkdir -p build/lib
-	gcc -g -shared -fPIC clip.c gl.c mat.c obj.c pipe.c rast.c tga.c -Iinclude -lm -o build/lib/libgl.so
+	gcc -g -shared -fPIC clip.c gl.c map.c mat.c obj.c pipe.c rast.c tga.c -Iinclude -lm -o build/lib/libgl.so
 
 examples/triangle: build/lib/libgl.so build/include/gl.h
 	gcc -g examples/triangle.c examples/driver.c build/lib/libgl.so -Iexamples/include -Ibuild/include -Lbuild/lib -lgl -lSDL2main -lSDL2 -o examples/triangle
